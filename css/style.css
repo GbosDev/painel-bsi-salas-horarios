@@ -413,17 +413,15 @@ main{ padding: 38px 0 80px; }
 .scene-btn:hover{ background:var(--paper-2); border-color:var(--slate); }
 .scene-btn svg{ width:15px; height:15px; }
 
-.building-toggle{
+.building-caption{
   position:absolute; bottom:16px; left:18px; z-index:5;
-  display:flex; gap:6px; background:var(--white); padding:4px; border-radius:8px; border:1px solid var(--line);
+  display:flex; gap:10px; background:var(--white); padding:8px 12px; border-radius:8px; border:1px solid var(--line);
+  font-size:11px; color:var(--slate); font-weight:600; align-items:center;
 }
-.building-toggle button{
-  border:none; background:none; padding:6px 12px; font-size:12px; font-weight:700; border-radius:5px;
-  cursor:pointer; color:var(--slate); font-family:var(--font-body);
-}
-.building-toggle button[aria-pressed="true"]{ background:var(--ink); color:var(--white); }
+.building-caption b{ color:var(--ink-soft); }
+.building-caption .cap-swatch{ width:8px; height:8px; border-radius:2px; display:inline-block; margin-right:4px; }
 
-.scene3d{ perspective: 1700px; width:100%; height:100%; display:flex; align-items:center; justify-content:center; touch-action:none; cursor:grab; }
+.scene3d{ perspective: 2600px; width:100%; height:100%; display:flex; align-items:center; justify-content:center; touch-action:none; cursor:grab; }
 .scene3d.dragging{ cursor:grabbing; }
 .world{
   transform-style:preserve-3d;
@@ -450,6 +448,22 @@ main{ padding: 38px 0 80px; }
 .face3d.side{ background: linear-gradient(160deg, rgba(214,205,182,.9), rgba(196,185,158,.88)); }
 .floor3d.is-active .face3d{ box-shadow: inset 0 0 0 2px var(--amber); }
 .floor3d.is-active .face3d.front{ background: linear-gradient(160deg, rgba(243,217,166,.5), rgba(246,243,236,.95)); }
+
+.window-band{
+  position:absolute; pointer-events:none;
+  background-image: repeating-linear-gradient(90deg, rgba(30,42,68,.15) 0, rgba(30,42,68,.15) 2px, transparent 2px, transparent 12px);
+}
+.wing-seam{
+  position:absolute; top:2px; bottom:2px; width:0; pointer-events:none;
+  border-left:1.5px dashed rgba(30,42,68,.32);
+}
+.wing-tag{
+  position:absolute; top:3px; font-size:7.5px; font-weight:800; letter-spacing:.04em;
+  color:rgba(30,42,68,.4); pointer-events:none; text-transform:uppercase;
+}
+.face3d.no-data{
+  background-image: repeating-linear-gradient(45deg, rgba(92,107,133,.12) 0, rgba(92,107,133,.12) 5px, transparent 5px, transparent 11px);
+}
 
 .room-marker{
   position:absolute; z-index:3;

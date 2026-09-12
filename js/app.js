@@ -11,25 +11,38 @@ var DAY_SHORT = {1:'SEG',2:'TER',3:'QUA',4:'QUI',5:'SEX',6:'SÁB'};
 var DAY_FULL  = {1:'Segunda-feira',2:'Terça-feira',3:'Quarta-feira',4:'Quinta-feira',5:'Sexta-feira',6:'Sábado'};
 var HOURS = [8,14,16,18,20];
 
-/* Building / floor model — estimated from room numbering conventions.
-   Room "Sala 2XX" -> 2nd floor, "Sala 1XX" -> 1st floor, labs grouped on
-   ground floor, annex rooms in a separate small building. */
-var BUILDINGS = [
-  {
-    id: 'principal', name: 'Prédio Didático Principal',
-    floors: [
-      { id:'terreo', label:'Térreo', sub:'Laboratórios', rooms:['Lab. 1','Lab. 2','Lab. 3','Lab. SAN'] },
-      { id:'and1',   label:'1º Andar', sub:'Salas 1xx', rooms:['Sala 105'] },
-      { id:'and2',   label:'2º Andar', sub:'Salas 2xx', rooms:['Sala 212','Sala 215'] }
-    ]
-  },
-  {
-    id: 'anexo', name: 'Prédio Anexo',
-    floors: [
-      { id:'anexo-terreo', label:'Térreo', sub:'Salas de pós-graduação', rooms:['Anexo 1','Anexo 2'] }
-    ]
-  }
-];
+/* Building / floor model — based on real, published facts about the CCET
+   building at Av. Pasteur 458, Urca (UNIRIO), since a live satellite/street
+   render isn't available in this environment:
+   - the main CCET building has an "ala antiga" (old wing) and an "ala nova"
+     (new wing) built side by side, with a ground floor (access/elevators)
+     plus four floors of classrooms above it;
+   - a two-floor annex building is physically ATTACHED to the main building
+     (not a separate freestanding block) and houses PPGI activities.
+   Room -> floor mapping keeps the numbering convention (Sala 1xx -> 1st
+   floor, Sala 2xx -> 2nd floor); floors 3-4 have no rooms in this semester's
+   sheet, so they render as part of the building's real massing but with an
+   empty, clearly-labelled room list rather than invented data. */
+   var BUILDINGS = [
+    {
+      id: 'principal', name: 'Prédio Principal do CCET', attached:false,
+      wings: [ { id:'antiga', label:'Ala Antiga', share:0.44 }, { id:'nova', label:'Ala Nova', share:0.56 } ],
+      floors: [
+        { id:'terreo', label:'Térreo', sub:'Acesso e laboratórios', rooms:['Lab. 1','Lab. 2','Lab. 3','Lab. SAN'] },
+        { id:'and1',   label:'1º Andar', sub:'Salas 1xx', rooms:['Sala 105'] },
+        { id:'and2',   label:'2º Andar', sub:'Salas 2xx', rooms:['Sala 212','Sala 215'] },
+        { id:'and3',   label:'3º Andar', sub:'Sem dados nesta grade', rooms:[] },
+        { id:'and4',   label:'4º Andar', sub:'Sem dados nesta grade', rooms:[] }
+      ]
+    },
+    {
+      id: 'anexo', name: 'Prédio Anexo', attached:true,
+      floors: [
+        { id:'anexo-terreo', label:'Térreo do Anexo', sub:'Salas de pós-graduação (PPGI)', rooms:['Anexo 1'] },
+        { id:'anexo-1',      label:'1º Andar do Anexo', sub:'Laboratórios de pesquisa (PPGI)', rooms:['Anexo 2'] }
+      ]
+    }
+  ];
 
 var ALL_ROOMS = [];
 BUILDINGS.forEach(function(b){ b.floors.forEach(function(f){ f.rooms.forEach(function(r){ ALL_ROOMS.push(r); }); }); });
@@ -53,8 +66,8 @@ var state = {
   selBuilding: 'principal',
   selFloor: 'terreo',
   selRoom: null,
-  yaw: -32,
-  pitch: 54,
+  yaw: 0,
+  pitch: 14,
   filters: {
     grade: { sala:'', professor:'', dia:'', turno:'', q:'' },
     disc:  { grade:'', periodo:'', secao:'', q:'' }
@@ -406,145 +419,193 @@ var el = H.el, UI = window.__b_ui;
    placed inside the .front face using ordinary 2D top/left offsets —
    they inherit the ancestor's 3D transform automatically. */
 
-var FLOOR_W = 210, FLOOR_D = 130, FLOOR_H = 62, FLOOR_GAP = 3;
-
-/* Build using the well-established absolute+left-offset cube face recipe */
-function makeFloorElement(floorDef, floorIndex, totalFloors, buildingWrap){
-  var w = FLOOR_W, d = FLOOR_D, hgt = FLOOR_H;
-  var floor = el('div', {
-    class: 'floor3d',
-    'data-floor-id': floorDef.id,
-    style: 'width:'+w+'px; height:'+hgt+'px; left:'+(-w/2)+'px; top:'+(-hgt/2)+'px;'
-  });
-
-  // position stack: translateY moves it up (negative) by cumulative height
-  var yOffset = -(floorIndex * (hgt + FLOOR_GAP));
-  floor.style.transform = 'translate3d(0px,'+yOffset+'px,0px)';
-
-  // FRONT face
-  var front = el('div', {class:'face3d front', style:
-    'width:'+w+'px; height:'+hgt+'px; left:0px; top:0px; transform: translateZ('+(d/2)+'px);'});
-  // TOP face — centered so its rotated plane meets the front face's top edge
-  var top = el('div', {class:'face3d top', style:
-    'width:'+w+'px; height:'+d+'px; left:0px; top:'+((hgt - d)/2)+'px; transform: rotateX(90deg) translateZ('+(hgt/2)+'px);'});
-  // LEFT side face
-  var left = el('div', {class:'face3d side', style:
-    'width:'+d+'px; height:'+hgt+'px; left:'+((w-d)/2)+'px; top:0px; transform: rotateY(-90deg) translateZ('+(-w/2)+'px);'});
-  // RIGHT side face
-  var right = el('div', {class:'face3d side', style:
-    'width:'+d+'px; height:'+hgt+'px; left:'+((w-d)/2)+'px; top:0px; transform: rotateY(90deg) translateZ('+(w/2)+'px);'});
-
-  floor.appendChild(right);
-  floor.appendChild(left);
-  floor.appendChild(top);
-  floor.appendChild(front);
-
-  // floor label (billboard, sits above the top face)
-  var label = el('div', {class:'floor-label3d', style:'left:'+(w/2-4)+'px; top:'+(-30)+'px; transform: translateZ('+(d/2+18)+'px) translateX(-50%);'},
-    [ (floorIndex+1)+'º · '+floorDef.label ]);
-  floor.appendChild(label);
-
-  // room markers on the front face
-  var rooms = floorDef.rooms;
-  var n = rooms.length;
-  rooms.forEach(function(roomName, ri){
-    var mw = 26, mh = Math.min(34, hgt*0.5);
-    var mx = (w/(n+1))*(ri+1) - mw/2;
-    var my = hgt - mh - 8;
-    var status = H.roomStatusToday(roomName);
-    // note: marker is nested inside .front, which is already translated to z=d/2,
-    // so only a small extra nudge is needed to sit just proud of that face.
-    var marker = el('button', {
-      class: 'room-marker status-'+status,
-      style: 'width:'+mw+'px; height:'+mh+'px; left:'+mx+'px; top:'+my+'px;',
-      'data-room': roomName,
-      'aria-label': 'Sala '+roomName,
-      title: roomName
-    }, [ el('span', {class:'mk-dot'}) ]);
-    marker.addEventListener('click', function(ev){
-      ev.stopPropagation();
-      selectRoom(roomName, true);
-    });
-    marker.addEventListener('mouseenter', function(){
-      var st = H.roomStatusToday(roomName);
-      var txt = st==='now' ? 'em aula agora' : (st==='soon' ? 'tem aula mais tarde hoje' : 'livre hoje');
-      UI.showTooltip(marker, '<b>'+roomName+'</b><div class="tt-sub">'+txt+'</div>');
-    });
-    marker.addEventListener('mouseleave', UI.hideTooltip);
-    front.appendChild(marker);
-  });
-
-  return floor;
-}
-
-function renderBuilding(){
-  var wrapId = document.getElementById('building3d');
-  wrapId.innerHTML = '';
-  var b = BUILDINGS.filter(function(x){ return x.id === state.selBuilding; })[0];
-  document.getElementById('buildingTitle').textContent = b.name;
-  var totalH = b.floors.length * (FLOOR_H + FLOOR_GAP);
-  wrapId.style.transform = 'translateY('+(totalH*0.32)+'px)';
-  b.floors.forEach(function(f, idx){
-    var floorEl = makeFloorElement(f, idx, b.floors.length, wrapId);
-    floorEl.addEventListener('click', function(){ selectFloor(f.id); });
-    wrapId.appendChild(floorEl);
-  });
-  applyFloorHighlight();
-}
-
-function applyFloorHighlight(){
-  var nodes = document.querySelectorAll('#building3d .floor3d');
-  nodes.forEach(function(n){
-    var isActive = n.getAttribute('data-floor-id') === state.selFloor;
-    n.classList.toggle('is-active', isActive);
-    n.classList.toggle('is-dim', !isActive);
-  });
-  document.querySelectorAll('.room-marker').forEach(function(m){
-    m.classList.toggle('selected', m.getAttribute('data-room') === state.selRoom);
-  });
-}
-
-function applyWorldTransform(){
-  var world = document.getElementById('world3d');
-  world.style.transform = 'rotateX('+state.pitch+'deg) rotateZ('+state.yaw+'deg)';
-}
+   var FLOOR_H = 56, FLOOR_GAP = 3, BUILDING_GAP = 22;
+   var MAIN_FLOOR_W = 320, MAIN_FLOOR_D = 150;
+   var ANNEX_FLOOR_W = 150, ANNEX_FLOOR_D = 128;
+   
+   function buildingGeometry(building){
+     return building.wings
+       ? { w: MAIN_FLOOR_W, d: MAIN_FLOOR_D }
+       : { w: ANNEX_FLOOR_W, d: ANNEX_FLOOR_D };
+   }
+   
+   /* Build using the well-established absolute+left-offset cube face recipe */
+   function makeFloorElement(floorDef, floorIndex, building, originX){
+     var geo = buildingGeometry(building);
+     var w = geo.w, d = geo.d, hgt = FLOOR_H;
+     var noData = floorDef.rooms.length === 0;
+     var floor = el('div', {
+       class: 'floor3d',
+       'data-floor-id': floorDef.id,
+       style: 'width:'+w+'px; height:'+hgt+'px; left:'+(originX - w/2)+'px; top:'+(-hgt/2)+'px;'
+     });
+   
+     var yOffset = -(floorIndex * (hgt + FLOOR_GAP));
+     floor.style.transform = 'translate3d(0px,'+yOffset+'px,0px)';
+   
+     var front = el('div', {class:'face3d front'+(noData?' no-data':''), style:
+       'width:'+w+'px; height:'+hgt+'px; left:0px; top:0px; transform: translateZ('+(d/2)+'px);'});
+     var top = el('div', {class:'face3d top'+(noData?' no-data':''), style:
+       'width:'+w+'px; height:'+d+'px; left:0px; top:'+((hgt - d)/2)+'px; transform: rotateX(90deg) translateZ('+(hgt/2)+'px);'});
+     var left = el('div', {class:'face3d side', style:
+       'width:'+d+'px; height:'+hgt+'px; left:'+((w-d)/2)+'px; top:0px; transform: rotateY(-90deg) translateZ('+(-w/2)+'px);'});
+     var right = el('div', {class:'face3d side', style:
+       'width:'+d+'px; height:'+hgt+'px; left:'+((w-d)/2)+'px; top:0px; transform: rotateY(90deg) translateZ('+(w/2)+'px);'});
+   
+     floor.appendChild(right);
+     floor.appendChild(left);
+     floor.appendChild(top);
+     floor.appendChild(front);
+   
+     front.appendChild(el('div', {class:'window-band', style:'left:10px; right:10px; top:'+(hgt*0.22)+'px; height:'+(hgt*0.4)+'px;'}));
+   
+     if (building.wings){
+       var seamX = w * building.wings[0].share;
+       front.appendChild(el('div', {class:'wing-seam', style:'left:'+seamX+'px;'}));
+       front.appendChild(el('div', {class:'wing-tag', style:'left:'+(seamX*0.5-24)+'px;'}, [building.wings[0].label]));
+       front.appendChild(el('div', {class:'wing-tag', style:'left:'+(seamX + (w-seamX)*0.5-20)+'px;'}, [building.wings[1].label]));
+     }
+   
+     var label = el('div', {class:'floor-label3d', style:'left:'+(w/2-4)+'px; top:'+(-30)+'px; transform: translateZ('+(d/2+18)+'px) translateX(-50%);'},
+       [ floorDef.label ]);
+     floor.appendChild(label);
+   
+     if (floorIndex === building.floors.length - 1){
+       floor.appendChild(el('div', {class:'floor-label3d', style:'left:'+(w/2-4)+'px; top:'+(-54)+'px; font-weight:800; background:var(--ink); color:var(--white); border-color:var(--ink); transform: translateZ('+(d/2+18)+'px) translateX(-50%);'},
+         [ building.name ]));
+     }
+   
+     if (noData){
+       front.appendChild(el('div', {style:'position:absolute; left:10px; bottom:8px; font-size:9.5px; font-weight:700; color:var(--slate); background:rgba(246,243,236,.85); padding:2px 6px; border-radius:3px;'}, [floorDef.sub]));
+     }
+   
+     var rooms = floorDef.rooms;
+     var n = rooms.length;
+     rooms.forEach(function(roomName, ri){
+       var mw = 26, mh = Math.min(34, hgt*0.5);
+       var mx = (w/(n+1))*(ri+1) - mw/2;
+       var my = hgt - mh - 8;
+       var status = H.roomStatusToday(roomName);
+       var marker = el('button', {
+         class: 'room-marker status-'+status,
+         style: 'width:'+mw+'px; height:'+mh+'px; left:'+mx+'px; top:'+my+'px;',
+         'data-room': roomName,
+         'aria-label': 'Sala '+roomName,
+         title: roomName
+       }, [ el('span', {class:'mk-dot'}) ]);
+       marker.addEventListener('click', function(ev){
+         ev.stopPropagation();
+         selectRoom(roomName, true);
+       });
+       marker.addEventListener('mouseenter', function(){
+         var st = H.roomStatusToday(roomName);
+         var txt = st==='now' ? 'em aula agora' : (st==='soon' ? 'tem aula mais tarde hoje' : 'livre hoje');
+         UI.showTooltip(marker, '<b>'+roomName+'</b><div class="tt-sub">'+txt+'</div>');
+       });
+       marker.addEventListener('mouseleave', UI.hideTooltip);
+       front.appendChild(marker);
+     });
+   
+     return floor;
+   }
+   
+   function renderBuilding(){
+     var wrapId = document.getElementById('building3d');
+     wrapId.innerHTML = '';
+   
+     var offsets = {};
+     var cursorX = 0;
+     BUILDINGS.forEach(function(b, bi){
+       var geo = buildingGeometry(b);
+       if (bi === 0){ cursorX = geo.w/2; }
+       else { cursorX += BUILDING_GAP + geo.w/2; }
+       offsets[b.id] = cursorX;
+       cursorX += geo.w/2;
+     });
+     var totalSpan = cursorX;
+     BUILDINGS.forEach(function(b){ offsets[b.id] -= totalSpan/2; });
+   
+     var maxFloors = Math.max.apply(null, BUILDINGS.map(function(b){ return b.floors.length; }));
+     wrapId.style.transform = 'translateY('+(maxFloors*(FLOOR_H+FLOOR_GAP)*0.36)+'px)';
+   
+     if (BUILDINGS.length > 1){
+       var b0 = BUILDINGS[0], b1 = BUILDINGS[1];
+       var g0 = buildingGeometry(b0), g1 = buildingGeometry(b1);
+       var bx0 = offsets[b0.id] + g0.w/2, bx1 = offsets[b1.id] - g1.w/2;
+       var bridge = el('div', {class:'face3d side', style:
+         'width:'+(bx1-bx0)+'px; height:'+(FLOOR_H*0.5)+'px; left:'+bx0+'px; top:'+(-FLOOR_H*0.5)+'px; transform: translateZ('+(Math.min(g0.d,g1.d)/2)+'px); opacity:.55;'});
+       wrapId.appendChild(bridge);
+     }
+   
+     BUILDINGS.forEach(function(b){
+       b.floors.forEach(function(f, idx){
+         var floorEl = makeFloorElement(f, idx, b, offsets[b.id]);
+         floorEl.setAttribute('data-building-id', b.id);
+         floorEl.addEventListener('click', function(){ selectFloor(f.id); });
+         wrapId.appendChild(floorEl);
+       });
+     });
+     applyFloorHighlight();
+   }
+   
+   function applyFloorHighlight(){
+     var nodes = document.querySelectorAll('#building3d .floor3d');
+     nodes.forEach(function(n){
+       var isActive = n.getAttribute('data-floor-id') === state.selFloor;
+       n.classList.toggle('is-active', isActive);
+       n.classList.toggle('is-dim', !isActive && !!state.selFloor);
+     });
+     document.querySelectorAll('.room-marker').forEach(function(m){
+       m.classList.toggle('selected', m.getAttribute('data-room') === state.selRoom);
+     });
+   }
+   
+   function applyWorldTransform(){
+     var world = document.getElementById('world3d');
+     world.style.transform = 'rotateX('+state.pitch+'deg) rotateZ('+state.yaw+'deg)';
+   }
 
 /* ---------- floor / room directory (side panel) ---------- */
 function renderFloorTabs(){
   var wrap = document.getElementById('floorTabs');
   wrap.innerHTML = '';
-  var b = BUILDINGS.filter(function(x){ return x.id === state.selBuilding; })[0];
-  b.floors.forEach(function(f, idx){
-    var isActive = f.id === state.selFloor;
-    var tab = el('div', {class:'floor-tab'+(isActive?' active':'')});
-    var head = el('div', {class:'ft-name'}, [
-      el('span', {class:'ft-idx'}, [String(idx+1)]),
-      f.label + (f.sub ? ' · '+f.sub : '')
-    ]);
-    var count = el('span', {class:'ft-count'}, [f.rooms.length+' sala'+(f.rooms.length!==1?'s':'')]);
-    var headRow = el('div', {style:'display:flex; align-items:center; justify-content:space-between; width:100%;'}, [head, count]);
-    headRow.addEventListener('click', function(){ selectFloor(f.id); });
-    tab.appendChild(headRow);
-    var roomsWrap = el('div', {class:'ft-rooms'});
-    f.rooms.forEach(function(roomName){
-      var status = H.roomStatusToday(roomName);
-      var color = status==='now' ? 'var(--rose)' : (status==='soon' ? 'var(--amber)' : 'var(--teal)');
-      var pill = el('button', {class:'room-pill'+(state.selRoom===roomName?' selected':'')}, [
-        el('span', {class:'dotstat', style:'background:'+color}), roomName
+  BUILDINGS.forEach(function(b){
+    wrap.appendChild(el('div', {style:'padding:12px 4px 4px; font-size:10.5px; font-weight:800; letter-spacing:.04em; color:var(--slate); border-top: 1px solid var(--line);'}, [b.name + (b.attached ? ' · anexo' : '')]));
+    b.floors.forEach(function(f, idx){
+      var isActive = f.id === state.selFloor;
+      var tab = el('div', {class:'floor-tab'+(isActive?' active':'')});
+      var head = el('div', {class:'ft-name'}, [
+        el('span', {class:'ft-idx'}, [String(idx+1)]),
+        f.label + (f.sub ? ' · '+f.sub : '')
       ]);
-      pill.addEventListener('click', function(ev){ ev.stopPropagation(); selectRoom(roomName, true); });
-      roomsWrap.appendChild(pill);
+      var count = el('span', {class:'ft-count'}, [f.rooms.length ? (f.rooms.length+' sala'+(f.rooms.length!==1?'s':'')) : 'sem dados']);
+      var headRow = el('div', {style:'display:flex; align-items:center; justify-content:space-between; width:100%;'}, [head, count]);
+      headRow.addEventListener('click', function(){ selectFloor(f.id); });
+      tab.appendChild(headRow);
+      var roomsWrap = el('div', {class:'ft-rooms'});
+      if (!f.rooms.length){
+        roomsWrap.appendChild(el('div', {style:'font-size:11.5px; color:var(--slate); font-style:italic;'}, ['Andar existe no prédio real, mas a planilha deste semestre não lista salas aqui.']));
+      }
+      f.rooms.forEach(function(roomName){
+        var status = H.roomStatusToday(roomName);
+        var color = status==='now' ? 'var(--rose)' : (status==='soon' ? 'var(--amber)' : 'var(--teal)');
+        var pill = el('button', {class:'room-pill'+(state.selRoom===roomName?' selected':'')}, [
+          el('span', {class:'dotstat', style:'background:'+color}), roomName
+        ]);
+        pill.addEventListener('click', function(ev){ ev.stopPropagation(); selectRoom(roomName, true); });
+        roomsWrap.appendChild(pill);
+      });
+      tab.appendChild(roomsWrap);
+      wrap.appendChild(tab);
     });
-    tab.appendChild(roomsWrap);
-    wrap.appendChild(tab);
   });
 }
 
 function selectFloor(floorId){
   state.selFloor = floorId;
-  var b = BUILDINGS.filter(function(x){ return x.id === state.selBuilding; })[0];
-  var f = b.floors.filter(function(x){ return x.id === floorId; })[0];
-  if (f && f.rooms.indexOf(state.selRoom) === -1) state.selRoom = null;
+  var loc = null;
+  BUILDINGS.forEach(function(b){ b.floors.forEach(function(f){ if (f.id===floorId) loc = {building:b, floor:f}; }); });
+  if (loc && loc.floor.rooms.indexOf(state.selRoom) === -1) state.selRoom = null;
   renderFloorTabs();
   applyFloorHighlight();
   renderRoomDetail();
@@ -557,8 +618,6 @@ function selectRoom(roomName, jumpFloor){
     if (loc){
       state.selBuilding = loc.building.id;
       state.selFloor = loc.floor.id;
-      renderBuilding();
-      renderBuildingToggle();
     }
   }
   renderFloorTabs();
@@ -610,49 +669,31 @@ function renderRoomDetail(){
   wrap.appendChild(weekWrap);
 }
 
-function renderBuildingToggle(){
-  var wrap = document.getElementById('buildingToggle');
-  wrap.innerHTML = '';
-  BUILDINGS.forEach(function(b){
-    var btn = el('button', {'aria-pressed': String(b.id===state.selBuilding)}, [b.name.replace('Prédio ','').replace('Didático Principal','Principal')]);
-    btn.addEventListener('click', function(){
-      state.selBuilding = b.id;
-      state.selFloor = b.floors[0].id;
-      state.selRoom = null;
-      renderBuilding();
-      renderBuildingToggle();
-      renderFloorTabs();
-      renderRoomDetail();
-    });
-    wrap.appendChild(btn);
-  });
-}
-
-/* ---------- drag-to-rotate ---------- */
+/* ---------- drag-to-rotate (camera rests close to a front elevation view) ---------- */
 function initDrag(){
   var scene = document.getElementById('scene3d');
-  var dragging = false, lastX = 0, startYaw = 0;
-  function down(x){ dragging = true; lastX = x; startYaw = state.yaw; scene.classList.add('dragging'); }
-  function move(x){
+  var dragging = false, lastX = 0, lastY = 0, startYaw = 0, startPitch = 0;
+  function down(x,y){ dragging = true; lastX = x; lastY = y; startYaw = state.yaw; startPitch = state.pitch; scene.classList.add('dragging'); }
+  function move(x,y){
     if (!dragging) return;
-    var dx = x - lastX;
-    state.yaw = Math.max(-85, Math.min(15, startYaw + dx*0.35));
+    var dx = x - lastX, dy = y - lastY;
+    state.yaw = Math.max(-48, Math.min(48, startYaw + dx*0.28));
+    state.pitch = Math.max(2, Math.min(46, startPitch - dy*0.15));
     applyWorldTransform();
   }
   function up(){ dragging = false; scene.classList.remove('dragging'); }
-  scene.addEventListener('pointerdown', function(e){ down(e.clientX); scene.setPointerCapture(e.pointerId); });
-  scene.addEventListener('pointermove', function(e){ move(e.clientX); });
+  scene.addEventListener('pointerdown', function(e){ down(e.clientX, e.clientY); scene.setPointerCapture(e.pointerId); });
+  scene.addEventListener('pointermove', function(e){ move(e.clientX, e.clientY); });
   scene.addEventListener('pointerup', up);
   scene.addEventListener('pointercancel', up);
   document.getElementById('btnResetView').addEventListener('click', function(){
-    state.yaw = -32; state.pitch = 54; applyWorldTransform();
+    state.yaw = 0; state.pitch = 14; applyWorldTransform();
   });
 }
 
 window.__b_ui.renderBuilding = renderBuilding;
 window.__b_ui.renderFloorTabs = renderFloorTabs;
 window.__b_ui.renderRoomDetail = renderRoomDetail;
-window.__b_ui.renderBuildingToggle = renderBuildingToggle;
 window.__b_ui.applyWorldTransform = applyWorldTransform;
 window.__b_ui.initDrag = initDrag;
 window.__b_ui.selectFloor = selectFloor;
@@ -1013,7 +1054,6 @@ function init(){
   UI.renderNowList();
   UI.renderKPIs();
   UI.renderCharts();
-  UI.renderBuildingToggle();
   UI.renderBuilding();
   UI.applyWorldTransform();
   UI.initDrag();
