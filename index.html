@@ -98,18 +98,21 @@
       <div class="section-head">
         <div>
           <h2>Prédio em 3D</h2>
-          <div class="desc">Arraste para girar. Selecione um andar para ver as salas indicadas ao lado — e clique numa sala para abrir os detalhes.</div>
+          <div class="desc">Vista de frente do Prédio Principal do CCET (ala antiga + ala nova) com o anexo de 2 pavimentos ao lado, como na Av. Pasteur, 458 — Urca/RJ. Arraste para inclinar o ângulo. Selecione um andar para ver as salas indicadas ao lado — e clique numa sala para abrir os detalhes.</div>
         </div>
       </div>
       <div class="predio-layout">
         <div class="scene-col">
-          <div class="scene-hint">↔ arraste para girar</div>
+          <div class="scene-hint">↔ arraste para inclinar</div>
           <div class="scene-controls">
-            <button class="scene-btn" id="btnResetView" title="Reiniciar visão">
+            <button class="scene-btn" id="btnResetView" title="Reiniciar visão frontal">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 1 3 6.7"/><path d="M3 4v6h6"/></svg>
             </button>
           </div>
-          <div class="building-toggle" id="buildingToggle"></div>
+          <div class="building-caption">
+            <span><span class="cap-swatch" style="background:var(--paper-3)"></span>Ala antiga / ala nova</span>
+            <span><span class="cap-swatch" style="background:var(--slate)"></span>Anexo (2 pav.)</span>
+          </div>
           <div class="scene3d" id="scene3d">
             <div class="world" id="world3d">
               <div class="building3d" id="building3d"></div>
@@ -118,7 +121,7 @@
         </div>
         <div class="directory-col">
           <div class="directory-head">
-            <h3 id="buildingTitle">Prédio Didático Principal</h3>
+            <h3 id="buildingTitle">Prédio Principal do CCET + Anexo</h3>
             <p>Clique num andar para expandir as salas. Cores dos marcadores: <b style="color:var(--rose)">em aula agora</b>, <b style="color:var(--amber-deep)">em breve hoje</b>, <b style="color:var(--teal-deep)">livre hoje</b>.</p>
           </div>
           <div class="floor-tabs" id="floorTabs"></div>
@@ -129,7 +132,7 @@
       </div>
       <div class="info-note">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-        <span>Os andares foram estimados a partir da numeração das salas (ex.: Sala 2<b>12</b> → 2º andar) e do agrupamento usual de laboratórios. Ajuste este mapeamento se ele não corresponder à planta real do seu campus.</span>
+        <span>A massa do prédio segue dados públicos reais do CCET/UNIRIO (Av. Pasteur, 458 — Urca): o bloco principal tem ala antiga + ala nova sobre um térreo de acesso, com 4 andares de salas, e o anexo tem 2 pavimentos e é fisicamente ligado ao prédio principal. A planta interna exata (qual sala fica onde) não é pública, então a numeração das salas (Sala 2<b>12</b> → 2º andar) foi usada para posicioná-las o mais próximo possível do real; os 3º e 4º andares existem na estrutura, mas aparecem como "sem dados" porque a planilha deste semestre não lista salas neles.</span>
       </div>
     </section>
 
