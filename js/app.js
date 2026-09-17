@@ -510,7 +510,7 @@ function renderRoomsGrid(){
         el('div', {class:'info-group'}, [el('span', {class:'info-label'}, ['Professor(a): ']), H.profShort(rec.professor)])
       ]);
       card.appendChild(details);
-      card.addEventListener('click', function(){ UI.openDrawer(rec); });
+      card.addEventListener('click', function(){ UI.openDrawer(rec, 'salas'); });
     } else {
       card.appendChild(el('div', {class:'free-message'}, ['Disponível']));
     }
@@ -547,7 +547,24 @@ var el = H.el, UI = window.__b_ui;
 var drawerEl = document.getElementById('drawer');
 var backdropEl = document.getElementById('drawerBackdrop');
 
-function openDrawer(rec){
+/* Busca a ementa oficial pelo código da disciplina (currículo 2023 tem
+   prioridade; cai para o código 2008 quando só existir naquela grade). */
+function findEmenta(rec){
+  var mapa = window.BSI_EMENTAS || {};
+  var cods = [];
+  if (rec.curr2023 && rec.curr2023.codigo) cods.push(rec.curr2023.codigo);
+  if (rec.curr2008 && rec.curr2008.codigo) cods.push(rec.curr2008.codigo);
+  for (var i=0; i<cods.length; i++){
+    if (mapa[cods[i]]) return { codigo: cods[i], data: mapa[cods[i]] };
+  }
+  return null;
+}
+
+/* origem: 'grade' | 'disciplinas' | 'busca' | 'salas'
+   A ementa só aparece quando o drawer é aberto pela grade horária ou
+   pelo índice de disciplinas — não na busca nem na aba de ocupação. */
+function openDrawer(rec, origem){
+  var mostrarEmenta = (origem === 'grade' || origem === 'disciplinas');
   var lbl = H.subjectLabel(rec, state.grade);
   document.getElementById('drawerSigla').innerHTML = '';
   document.getElementById('drawerSigla').appendChild(UI.siglaChip(rec, state.grade));
@@ -589,6 +606,20 @@ function openDrawer(rec){
       el('span', {class:'subj'}, [rec.sala || 'sem sala'])
     ]));
   });
+
+  if (mostrarEmenta){
+    var em = findEmenta(rec);
+    body.appendChild(el('h5', {}, ['EMENTA']));
+    if (em){
+      body.appendChild(el('div', {class:'ementa-box'}, [
+        el('div', {class:'ementa-meta'}, [em.codigo + ' · ' + em.data.nome]),
+        el('p', {class:'ementa-texto'}, [em.data.ementa])
+      ]));
+      body.appendChild(el('div', {class:'ementa-fonte'}, ['Fonte: Portal do Ementário — UNIRIO']));
+    } else {
+      body.appendChild(el('div', {class:'rd-empty'}, ['Ementa não disponível no ementário para esta disciplina.']));
+    }
+  }
 
   if (rec.sala){
     var goBtn = el('button', {class:'filter-reset', style:'margin-top:16px; width:100%;'}, ['Ver esta sala na ocupação →']);
@@ -701,7 +732,7 @@ function renderSchedule(){
               el('div', {class:'cb-title'}, [lbl.sigla]),
               el('div', {class:'cb-meta'}, [rec.sala||'sem sala', '· ', H.profShort(rec.professor)])
             ]);
-            block.addEventListener('click', function(){ openDrawer(rec); });
+            block.addEventListener('click', function(){ openDrawer(rec, 'grade'); });
             block.addEventListener('mouseenter', function(){
               UI.showTooltip(block, '<b>'+lbl.nome+'</b><div class="tt-sub">'+H.profShort(rec.professor)+' · '+(rec.sala||'sem sala')+'</div>');
             });
@@ -797,7 +828,7 @@ function renderDiscTable(){
     tr.appendChild(el('td', {}, [H.profShort(rec.professor)]));
     tr.appendChild(el('td', {}, [rec.sala || '—']));
     tr.appendChild(el('td', {}, [rec.sessions.map(function(s){ return H.DAY_SHORT[s.day_num]+' '+H.fmtHour(s.hour); }).join(' · ') || '—']));
-    tr.addEventListener('click', function(){ openDrawer(rec); });
+    tr.addEventListener('click', function(){ openDrawer(rec, 'disciplinas'); });
     tbody.appendChild(tr);
   });
 }
@@ -839,7 +870,7 @@ function wireHeroSearch(){
         el('span', {class:'nm'}, [lbl.nome]),
         el('span', {class:'meta'}, [rec.sala||'sem sala'])
       ]);
-      item.addEventListener('click', function(){ results.classList.remove('open'); input.value=''; openDrawer(rec); });
+      item.addEventListener('click', function(){ results.classList.remove('open'); input.value=''; openDrawer(rec, 'busca'); });
       results.appendChild(item);
     });
     results.classList.add('open');
