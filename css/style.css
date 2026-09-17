@@ -585,3 +585,22 @@ footer .foot-legend{ display:flex; gap:16px; flex-wrap:wrap; }
   .hero h1{ font-size:30px; }
   .kpi-row{ grid-template-columns:1fr 1fr; }
 }
+/* ---------- Ementa (drawer: grade horária + índice de disciplinas) ---------- */
+.drawer-body .ementa-box{
+  border:1px solid var(--line-soft);
+  border-left:3px solid var(--teal);
+  border-radius:4px;
+  padding:13px 15px;
+  background:var(--paper-2, transparent);
+}
+.drawer-body .ementa-meta{
+  font-size:10.5px; font-weight:800; letter-spacing:.05em;
+  text-transform:uppercase; color:var(--slate); margin-bottom:7px;
+}
+.drawer-body .ementa-texto{
+  margin:0; font-family:'Newsreader', Georgia, serif;
+  font-size:14.5px; line-height:1.6; text-align:justify;
+}
+.drawer-body .ementa-fonte{
+  margin-top:8px; font-size:10.5px; color:var(--slate); font-style:italic;
+}
