@@ -1,0 +1,145 @@
+/* ============================================================
+   DESIGN TOKENS — ported from the legacy Bússola stylesheet so the
+   Angular app keeps the exact same visual identity.
+   ============================================================ */
+:root {
+  --ink: #1E2A44;
+  --ink-2: #2D3E5E;
+  --ink-soft: #445374;
+  --paper: #F6F3EC;
+  --paper-2: #EDE7D8;
+  --paper-3: #E4DCC7;
+  --line: #D7CEB6;
+  --line-soft: #E3DBC6;
+  --slate: #5C6B85;
+  --white: #FFFEFB;
+  --amber: #E1A03C;
+  --amber-deep: #B97A22;
+  --amber-soft: #F3D9A6;
+  --teal: #3D8577;
+  --teal-soft: #CFE3DE;
+  --teal-deep: #2A5F55;
+  --plum: #7C5A72;
+  --plum-soft: #E4D6DF;
+  --plum-deep: #5C4155;
+  --rose: #B65C4A;
+  --rose-soft: #EFD6CE;
+
+  --font-display: 'Newsreader', Georgia, serif;
+  --font-body: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --shadow-soft: 0 10px 30px -18px rgba(30, 42, 68, 0.35);
+  --ease: cubic-bezier(.22, .9, .32, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--amber-soft); color: var(--ink); }
+a { color: inherit; }
+button { font-family: inherit; cursor: pointer; }
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; margin: 0; color: var(--ink); }
+:focus-visible { outline: 2.5px solid var(--amber-deep); outline-offset: 2px; border-radius: 2px; }
+
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 32px; }
+.hairline { border: none; border-top: 1px solid var(--line); margin: 0; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: var(--slate); }
+
+/* ============================================================
+   TRANSITION / ANIMATION UTILITIES
+   ============================================================ */
+.fade-in { animation: bs-fade-in .35s var(--ease) both; }
+.slide-up { animation: bs-slide-up .4s var(--ease) both; }
+
+@keyframes bs-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes bs-slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.btn {
+  border: 1px solid var(--line);
+  background: var(--white);
+  color: var(--ink);
+  padding: 9px 16px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 14px;
+  transition: transform .15s var(--ease), box-shadow .15s var(--ease), background .15s var(--ease);
+}
+.btn:hover { background: var(--paper-2); box-shadow: var(--shadow-soft); transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn-primary { background: var(--teal); border-color: var(--teal-deep); color: var(--white); }
+.btn-primary:hover { background: var(--teal-deep); }
+.btn-danger { background: var(--rose-soft); border-color: var(--rose); color: var(--rose); }
+.btn-danger:hover { background: var(--rose); color: var(--white); }
+
+.card {
+  background: var(--white);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+  padding: 20px;
+}
+
+.form-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.form-field label { font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+.form-field input, .form-field select {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: var(--font-body);
+  background: var(--white);
+  color: var(--ink);
+  transition: border-color .15s var(--ease);
+}
+.form-field input:focus, .form-field select:focus { border-color: var(--teal); }
+
+.error-box {
+  background: var(--rose-soft);
+  color: var(--plum-deep);
+  border: 1px solid var(--rose);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.role-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.role-badge.aluno { background: var(--teal-soft); color: var(--teal-deep); }
+.role-badge.professor { background: var(--amber-soft); color: var(--amber-deep); }

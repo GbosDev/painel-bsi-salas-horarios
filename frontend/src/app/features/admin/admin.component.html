@@ -1,0 +1,89 @@
+<div class="section-head">
+  <div>
+    <h2>Administração acadêmica</h2>
+    <div class="desc">Cadastre, edite e remova turmas e salas. Toda alteração é persistida no servidor e auditada.</div>
+  </div>
+  <button type="button" class="btn btn-primary" (click)="openNewForm()">+ Nova turma</button>
+</div>
+
+@if (formOpen()) {
+  <div class="card form-card slide-up">
+    <div class="form-grid">
+      <div class="form-field"><label>Sigla</label><input [(ngModel)]="draft.sigla" /></div>
+      <div class="form-field"><label>Disciplina</label><input [(ngModel)]="draft.nome" /></div>
+      <div class="form-field"><label>Código</label><input [(ngModel)]="draft.codigo" /></div>
+      <div class="form-field"><label>Período</label><input [(ngModel)]="draft.periodo" /></div>
+      <div class="form-field"><label>Professor(a)</label><input [(ngModel)]="draft.professor" /></div>
+      <div class="form-field"><label>Vagas</label><input type="number" [(ngModel)]="draft.vagas" /></div>
+      <div class="form-field">
+        <label>Sala</label>
+        <select [(ngModel)]="draft.sala">
+          <option value="">Sem sala fixa</option>
+          @for (r of rooms(); track r.id) { <option [value]="r.nome">{{ r.nome }}</option> }
+        </select>
+      </div>
+    </div>
+
+    <label class="slots-label">Horários semanais</label>
+    @for (slot of draftSlots; track $index) {
+      <div class="slot-row">
+        <select [(ngModel)]="slot.dayNum">
+          @for (d of dayOptions; track d) { <option [value]="d">{{ d }}</option> }
+        </select>
+        <select [(ngModel)]="slot.hour">
+          @for (h of hourOptions; track h) { <option [value]="h">{{ h }}:00</option> }
+        </select>
+        <button type="button" class="btn" (click)="removeSlotRow($index)">×</button>
+      </div>
+    }
+    <button type="button" class="btn add-slot" (click)="addSlotRow()">+ adicionar horário</button>
+
+    <div class="form-actions">
+      <button type="button" class="btn btn-primary" (click)="submitForm()">
+        {{ editingId() !== null ? 'Salvar alterações' : 'Criar turma' }}
+      </button>
+      <button type="button" class="btn" (click)="cancelForm()">Cancelar</button>
+    </div>
+  </div>
+}
+
+<input class="search" type="text" placeholder="Buscar turma" [(ngModel)]="query" />
+
+<div class="card index-wrap">
+  <table class="index-table">
+    <thead><tr><th>Sigla</th><th>Disciplina</th><th>Professor</th><th>Sala</th><th>Horários</th><th></th></tr></thead>
+    <tbody>
+      @for (cs of filtered(); track cs.id) {
+        <tr>
+          <td><b>{{ (cs.curr2023 ?? cs.curr2008)?.sigla }}</b></td>
+          <td>{{ (cs.curr2023 ?? cs.curr2008)?.nome }}</td>
+          <td>{{ cs.professor || '—' }}</td>
+          <td>{{ cs.sala || '—' }}</td>
+          <td>{{ formatSessions(cs) }}</td>
+          <td class="actions">
+            <button type="button" class="btn" (click)="openEditForm(cs)">Editar</button>
+            <button type="button" class="btn btn-danger" (click)="armDelete(cs.id)">
+              {{ deleteArmed() === cs.id ? 'Confirmar?' : 'Excluir' }}
+            </button>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+
+<div class="card rooms-card">
+  <h3>Salas</h3>
+  <div class="add-room">
+    <input type="text" placeholder="Nova sala (ex.: Sala 301)" [(ngModel)]="newRoomName" />
+    <button type="button" class="btn btn-primary" (click)="addRoom()">Adicionar sala</button>
+  </div>
+  <div class="room-chips">
+    @for (r of rooms(); track r.id) {
+      <span class="chip" [class.used]="roomInUse(r.nome) > 0">
+        {{ r.nome }}{{ roomInUse(r.nome) > 0 ? ' · ' + roomInUse(r.nome) : '' }}
+        <button type="button" (click)="removeRoom(r)" [title]="roomInUse(r.nome) > 0 ? 'Sala em uso' : 'Remover sala'">×</button>
+      </span>
+    }
+  </div>
+</div>

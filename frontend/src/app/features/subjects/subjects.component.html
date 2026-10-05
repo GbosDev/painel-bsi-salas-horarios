@@ -1,0 +1,37 @@
+<div class="section-head">
+  <div>
+    <h2>Disciplinas</h2>
+    <div class="desc">Índice das disciplinas do curso, com acesso à ementa.</div>
+  </div>
+  <input class="search" type="text" placeholder="Filtrar por sigla ou nome" [(ngModel)]="query" />
+</div>
+
+<div class="card index-wrap">
+  <table class="index-table">
+    <thead>
+      <tr><th>Sigla</th><th>Disciplina</th><th>Matriz</th><th>Professor</th><th>Sala</th><th></th></tr>
+    </thead>
+    <tbody>
+      @for (row of rows(); track row.classSessionId + row.curriculum) {
+        <tr>
+          <td><b>{{ row.subject.sigla }}</b></td>
+          <td>{{ row.subject.nome }}</td>
+          <td>{{ row.curriculum }}</td>
+          <td>{{ row.professor || '—' }}</td>
+          <td>{{ row.sala || '—' }}</td>
+          <td><button type="button" class="btn" (click)="openEmenta(row)">Ementa</button></td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+
+@if (selectedEmenta()) {
+  <div class="ementa-overlay fade-in" (click)="closeEmenta()">
+    <div class="ementa-card card" (click)="$event.stopPropagation()">
+      <h3>{{ selectedNome() }}</h3>
+      <p>{{ selectedEmenta() }}</p>
+      <button type="button" class="btn" (click)="closeEmenta()">Fechar</button>
+    </div>
+  </div>
+}

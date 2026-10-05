@@ -1,0 +1,51 @@
+<div class="auth-split">
+  <aside class="auth-side">
+    <div class="auth-rings"><i></i><i></i><i></i></div>
+    <div class="auth-side-copy">
+      <h2>Painel CCET x IBIO</h2>
+      <p>Salas, horários e planejamento acadêmico dos cursos em um só lugar.</p>
+    </div>
+  </aside>
+
+  <div class="auth-wrap">
+    <div class="auth-card fade-in">
+      <h1>Bem-vindo(a)</h1>
+      <p class="auth-lead">Entre com seu usuário para acessar o painel.</p>
+
+      <form (ngSubmit)="submit()" autocomplete="off">
+        <div class="form-field">
+          <label for="user">Usuário</label>
+          <input id="user" name="user" type="text" placeholder="seu usuário" autocomplete="username"
+                 [(ngModel)]="username" />
+        </div>
+        <div class="form-field">
+          <label for="pass">Senha</label>
+          <input id="pass" name="pass" type="password" placeholder="sua senha" autocomplete="current-password"
+                 [(ngModel)]="password" />
+        </div>
+
+        @if (errorMessage()) {
+          <div class="error-box">{{ errorMessage() }}</div>
+        }
+
+        <button type="submit" class="btn btn-primary auth-submit" [disabled]="loading()">
+          {{ loading() ? 'Entrando…' : 'Entrar' }}
+        </button>
+      </form>
+
+      <div class="auth-demo">
+        <div class="auth-demo-title">Contas de teste</div>
+        <div class="auth-chips">
+          @for (account of demoAccounts; track account.user) {
+            <button type="button" class="auth-demo-row" (click)="fillDemo(account)">
+              <span class="role-badge" [class]="account.role">
+                {{ account.role === 'professor' ? 'Prof.' : 'Aluno' }}
+              </span>
+              {{ account.label }}
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

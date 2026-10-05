@@ -1,0 +1,35 @@
+<div class="section-head">
+  <div>
+    <h2>Grade horária</h2>
+    <div class="desc">Visão semanal das turmas do curso selecionado.</div>
+  </div>
+  <input class="search" type="text" placeholder="Filtrar por sigla, disciplina, professor ou sala" [(ngModel)]="query" />
+</div>
+
+<div class="grade-wrap card">
+  <table class="grade-table">
+    <thead>
+      <tr>
+        <th></th>
+        @for (d of days; track d) { <th>{{ dayShort[d] }}</th> }
+      </tr>
+    </thead>
+    <tbody>
+      @for (h of hours(); track h) {
+        <tr>
+          <td class="hour-col">{{ h }}:00</td>
+          @for (d of days; track d) {
+            <td>
+              @for (cs of sessionsAt(d, h); track cs.id) {
+                <div class="slot fade-in" [title]="subjectLabel(cs)">
+                  <b>{{ (cs.curr2023 ?? cs.curr2008)?.sigla }}</b>
+                  <span>{{ cs.sala || 'sem sala' }}</span>
+                </div>
+              }
+            </td>
+          }
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

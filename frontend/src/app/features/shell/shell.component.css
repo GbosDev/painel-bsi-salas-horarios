@@ -1,0 +1,47 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--white);
+  border-bottom: 1px solid var(--line);
+}
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+}
+.brand-group { display: flex; align-items: baseline; gap: 10px; }
+.wordmark { font-family: var(--font-display); font-weight: 700; font-size: 20px; color: var(--ink); }
+.eyebrow { font-size: 13px; color: var(--slate); }
+.course-switcher {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-2);
+  padding: 4px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.user-badge { display: flex; align-items: center; gap: 10px; }
+
+.header-tabsrow { padding: 0 32px; }
+.tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+}
+.tabs a {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--slate);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  transition: color .15s var(--ease), border-color .15s var(--ease);
+  white-space: nowrap;
+}
+.tabs a:hover { color: var(--ink); }
+.tabs a.active { color: var(--teal-deep); border-bottom-color: var(--teal); }
+
+.main-content { padding: 28px 32px 60px; }

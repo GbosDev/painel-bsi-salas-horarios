@@ -1,0 +1,43 @@
+<div class="section-head">
+  <div>
+    <h2>Ocupação de salas</h2>
+    <div class="desc">Escolha um dia e horário para ver quais salas estão livres ou ocupadas.</div>
+  </div>
+</div>
+
+<div class="rd-controls card">
+  <div class="form-field">
+    <label>Dia</label>
+    <select [(ngModel)]="day" (change)="onSlotChange()">
+      @for (d of days; track d.num) {
+        <option [value]="d.num">{{ d.short }}</option>
+      }
+    </select>
+  </div>
+  <div class="form-field">
+    <label>Horário</label>
+    <select [(ngModel)]="hour" (change)="onSlotChange()">
+      @for (h of hours; track h) {
+        <option [value]="h">{{ h }}:00</option>
+      }
+    </select>
+  </div>
+</div>
+
+<div class="rooms-grid">
+  @for (room of occupancy(); track room.sala) {
+    <div class="room-card card slide-up" [class.occupied]="room.ocupada">
+      <b>{{ room.sala }}</b>
+      @if (room.ocupada && room.ocupante) {
+        <span class="occupant">
+          {{ (room.ocupante.curr2023 ?? room.ocupante.curr2008)?.sigla }} · {{ room.ocupante.professor }}
+        </span>
+      } @else {
+        <span class="free">Livre</span>
+      }
+    </div>
+  }
+  @if (!loading() && occupancy().length === 0) {
+    <div class="rd-empty">Nenhuma sala cadastrada para este curso.</div>
+  }
+</div>

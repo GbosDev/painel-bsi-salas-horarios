@@ -1,0 +1,42 @@
+<div class="section-head">
+  <div>
+    <h2>Meu plano de aulas</h2>
+    <div class="desc">Escolha as turmas em que você está inscrito. O plano fica salvo no servidor e é visto em qualquer dispositivo.</div>
+  </div>
+</div>
+
+<div class="pl-layout">
+  <div class="pl-cat card">
+    <input class="search" type="text" placeholder="Filtrar por sigla, disciplina ou professor" [(ngModel)]="query" />
+    <div class="pl-list">
+      @for (cs of filtered(); track cs.id) {
+        <button type="button" class="pl-item" [class.on]="isSelected(cs)" (click)="toggle(cs)">
+          <b>{{ (cs.curr2023 ?? cs.curr2008)?.sigla }}</b>
+          <span>{{ (cs.curr2023 ?? cs.curr2008)?.nome }}</span>
+          <small>{{ cs.professor }} · {{ cs.sala || 'sem sala' }}</small>
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="pl-main">
+    <div class="pl-bar card">
+      <span>{{ chosen().length }} turma(s) · {{ conflicts().length }} choque(s)</span>
+      <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="save()">
+        {{ saving() ? 'Salvando…' : 'Salvar plano' }}
+      </button>
+    </div>
+
+    <div class="pl-chosen card">
+      @for (cs of chosen(); track cs.id) {
+        <div class="pl-row" [class.clash]="conflictKeys().has('' + cs.id)">
+          <b>{{ subjectLabel(cs) }}</b>
+          <small>{{ cs.professor }} · {{ cs.sala || 'sem sala' }}</small>
+        </div>
+      }
+      @if (chosen().length === 0) {
+        <div class="rd-empty">Nenhuma turma selecionada ainda.</div>
+      }
+    </div>
+  </div>
+</div>

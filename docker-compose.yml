@@ -1,0 +1,77 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: bussola-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: bussola
+      MYSQL_USER: bussola
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-bussola}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-bussola_root}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-bussola_root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:7
+    container_name: bussola-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./infra/mongo-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bussola-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      MYSQL_URL: jdbc:mysql://mysql:3306/bussola?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo
+      MYSQL_USER: bussola
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-bussola}
+      MONGO_URI: mongodb://mongo:27017/bussola
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-homologacao-please-override-this-value}
+      JWT_EXPIRATION_SECONDS: ${JWT_EXPIRATION_SECONDS:-28800}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4201}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: bussola-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "4201:80"
+
+volumes:
+  mysql_data:
+  mongo_data:

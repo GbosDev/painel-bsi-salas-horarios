@@ -1,0 +1,25 @@
+<div class="section-head">
+  <div>
+    <h2>Painel</h2>
+    <div class="desc">Indicadores do curso selecionado.</div>
+  </div>
+</div>
+
+<div class="kpi-row">
+  <div class="kpi card slide-up"><span class="kpi-value">{{ totalTurmas() }}</span><span class="kpi-label">Turmas</span></div>
+  <div class="kpi card slide-up"><span class="kpi-value">{{ totalVagas() }}</span><span class="kpi-label">Vagas totais</span></div>
+  <div class="kpi card slide-up"><span class="kpi-value">{{ totalProfessores() }}</span><span class="kpi-label">Professores</span></div>
+  <div class="kpi card slide-up"><span class="kpi-value">{{ totalSalas() }}</span><span class="kpi-label">Salas em uso</span></div>
+</div>
+
+<div class="card chart-card">
+  <h3>Aulas por dia da semana</h3>
+  <div class="bars">
+    @for (d of aulasPorDia(); track d.day) {
+      <div class="bar-col">
+        <div class="bar" [style.height.%]="(d.count / maxAulas()) * 100"></div>
+        <span>{{ d.day }}</span>
+      </div>
+    }
+  </div>
+</div>

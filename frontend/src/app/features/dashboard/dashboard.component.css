@@ -1,0 +1,12 @@
+.section-head { margin-bottom: 18px; }
+.desc { color: var(--slate); font-size: 13.5px; margin-top: 4px; }
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.kpi { display: flex; flex-direction: column; gap: 4px; }
+.kpi-value { font-family: var(--font-display); font-size: 30px; font-weight: 700; color: var(--teal-deep); }
+.kpi-label { font-size: 12.5px; color: var(--slate); }
+
+.chart-card h3 { margin-bottom: 16px; }
+.bars { display: flex; align-items: flex-end; gap: 16px; height: 180px; }
+.bar-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; flex: 1; gap: 8px; height: 100%; }
+.bar { width: 100%; max-width: 46px; background: var(--amber); border-radius: 4px 4px 0 0; transition: height .4s var(--ease); min-height: 4px; }
+.bar-col span { font-size: 12px; color: var(--slate); }

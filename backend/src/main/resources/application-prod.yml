@@ -1,0 +1,8 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+logging:
+  level:
+    root: WARN
+    br.com.bussola.backend: INFO

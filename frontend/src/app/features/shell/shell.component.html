@@ -1,0 +1,37 @@
+<header class="header">
+  <div class="wrap header-row">
+    <div class="brand-group">
+      <span class="wordmark">Bússola</span>
+      <select class="course-switcher" [value]="courseContext.selectedCourseId()" (change)="onCourseChange($event)">
+        @for (course of courseContext.courses(); track course.id) {
+          <option [value]="course.id">{{ course.sigla }} — {{ course.nome }}</option>
+        }
+      </select>
+    </div>
+    <div class="user-badge">
+      <span class="eyebrow">{{ auth.session()?.nome }}</span>
+      <span class="role-badge" [class]="auth.session()?.role === 'PROFESSOR' ? 'professor' : 'aluno'">
+        {{ auth.session()?.role === 'PROFESSOR' ? 'Professor(a)' : 'Aluno(a)' }}
+      </span>
+      <button type="button" class="btn" (click)="logout()">Sair</button>
+    </div>
+  </div>
+  <div class="wrap header-tabsrow">
+    <nav class="tabs">
+      <a routerLink="salas" routerLinkActive="active">Salas</a>
+      <a routerLink="grade" routerLinkActive="active">Grade horária</a>
+      <a routerLink="disciplinas" routerLinkActive="active">Disciplinas</a>
+      @if (auth.isAluno()) {
+        <a routerLink="plano" routerLinkActive="active">Meu plano</a>
+      }
+      @if (auth.isProfessor()) {
+        <a routerLink="painel" routerLinkActive="active">Painel</a>
+        <a routerLink="admin" routerLinkActive="active">Administração</a>
+      }
+    </nav>
+  </div>
+</header>
+
+<main class="wrap main-content fade-in">
+  <router-outlet />
+</main>
