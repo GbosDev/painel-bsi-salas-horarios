@@ -2,24 +2,16 @@
   "use strict";
   var B=window.__BUSSOLA__, H=window.__b_helpers, el=H.el, root=document.getElementById('view-csv');
   if(!root||!B.IS_PROFESSOR){ return; }
-  var C = B.CURSO;
+  var targetCurso = B.CURSO;
 
   /* ============================================================
      ESPECIFICAÇÃO DO CSV
      ------------------------------------------------------------
-     O sistema aceita DOIS formatos, detectados automaticamente pelo
-     cabeçalho — não é preciso escolher um modo manualmente:
-
-     • "Grade dupla" (recomendado — é o formato da planilha oficial de
-       horários): cada linha pode trazer a disciplina da grade antiga
-       (2008) e/ou da grade nova (2023) lado a lado, com Professor,
-       Sala, Vagas e Horários compartilhados entre as duas.
-     • "Grade única": uma linha = uma disciplina de uma grade só
-       (útil para cursos sem correspondência de grade antiga).
-
-     Em QUALQUER formato, só duas coisas são realmente obrigatórias:
-     Sigla e Disciplina de pelo menos uma das grades na linha. Tudo o
-     mais é opcional e recebe um valor padrão sensato.
+     Único requisito: Sigla + Disciplina de pelo menos uma das grades
+     (antiga ou atual) em cada linha. O sistema detecta sozinho, pelo
+     cabeçalho, se a planilha traz uma grade só ou as duas lado a lado,
+     e ignora colunas que não reconhece. Centro e Curso são escolhidos
+     uma vez na tela, não em cada linha do arquivo.
      ============================================================ */
   var ALIASES_DUAL = {
     siglaAntiga:['siglaantiga','sigla2008','siglagradeantiga'],
@@ -32,45 +24,24 @@
     periodoAtual:['periodoatual','periodo2023']
   };
   var ALIASES_SIMPLE = {
-    sigla:['sigla'],
-    nome:['disciplina','nome'],
-    codigo:['codigo','código','cod'],
-    periodo:['periodo','período'],
-    grade:['grade','curriculo','currículo']
+    sigla:['sigla'], nome:['disciplina','nome'], codigo:['codigo','código','cod'],
+    periodo:['periodo','período'], grade:['grade','curriculo','currículo']
   };
   var ALIASES_SHARED = {
-    professor:['professor','docente','professora'],
-    sala:['sala','ambiente','espaco','espaço'],
-    vagas:['vagas','capacidade'],
-    secao:['secao','seção','tipo'],
-    id:['id']
+    professor:['professor','docente','professora'], sala:['sala','ambiente','espaco','espaço'],
+    vagas:['vagas','capacidade'], secao:['secao','seção','tipo'], id:['id']
   };
   var ALIASES_HORARIO = ['horario','horarios','horário','horários','sessao','sessoes','sessão','sessões'];
 
-  var SPEC_ROWS = [
-    ['Sigla + Disciplina', 'Obrigatória', '(de pelo menos uma das grades, antiga ou atual)', 'Ex.: "ALGPROG/I" + "Algoritmos e Programação (ingressantes)"'],
-    ['SiglaAntiga + DisciplinaAntiga', 'Opcional', 'Sigla2008, Nome2008', 'Preenche a correspondência na grade 2008 — deixe em branco se a turma não existir na grade antiga'],
-    ['SiglaAtual + DisciplinaAtual', 'Opcional', 'Sigla2023, Nome2023, SiglaNova', 'Preenche a correspondência na grade 2023 — deixe em branco se a turma for exclusiva da grade antiga'],
-    ['Codigo / Período (Antiga ou Atual)', 'Opcional', 'Cod2008, Cod2023…', 'Código da disciplina e período (1–10, "A" ou "O")'],
-    ['Professor', 'Opcional', 'Docente', 'Nome do(a) professor(a) responsável'],
-    ['Sala', 'Opcional', 'Ambiente, Espaço', 'Nome exato da sala (ex.: Sala 212); em branco = sem sala fixa'],
-    ['Vagas', 'Opcional', 'Capacidade', 'Número inteiro'],
-    ['Horario1, Horario2…', 'Opcional', 'Horários, Sessões', 'Uma coluna por horário, no formato "DIA HORA" — ex.: "3ª 14h" ou "SEG 14:00". Pode repetir quantas colunas precisar.']
-  ];
-
   var DAY_NAME_ALIASES = {
-    seg:1, segunda:1, 'segunda-feira':1,
-    ter:2, terca:2, 'terca-feira':2,
-    qua:3, quarta:3, 'quarta-feira':3,
-    qui:4, quinta:4, 'quinta-feira':4,
-    sex:5, sexta:5, 'sexta-feira':5,
-    sab:6, sabado:6
+    seg:1, segunda:1, 'segunda-feira':1, ter:2, terca:2, 'terca-feira':2,
+    qua:3, quarta:3, 'quarta-feira':3, qui:4, quinta:4, 'quinta-feira':4,
+    sex:5, sexta:5, 'sexta-feira':5, sab:6, sabado:6
   };
 
   function normalize(s){ return String(s==null?'':s).trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
 
-  /* aceita tanto o formato acadêmico "2ª", "3ª"… (2ª = segunda) quanto
-     números diretos 1–6 (1 = segunda) e nomes/abreviações do dia */
+  /* aceita "2ª"…"7ª" (acadêmico, 2ª=segunda), números 1–6 diretos e nomes do dia */
   function parseDay(tok){
     var raw = String(tok||'').trim().toLowerCase();
     if (!raw) return null;
@@ -156,14 +127,14 @@
     var map = header.map;
     function err(msg){ return { ok:false, rowNum:rowNum, message:msg }; }
     var h = collectSessions(cols, header.horarioCols);
-    var warn = h.invalid.length ? ('Horário(s) ignorado(s) por formato não reconhecido: "'+h.invalid.join('", "')+'"') : null;
+    var warn = h.invalid.length ? ('Horário não reconhecido: "'+h.invalid.join('", "')+'"') : null;
 
     if (header.isDual){
       var sA=val(cols,map,'siglaAntiga'), nA=val(cols,map,'nomeAntiga');
       var sU=val(cols,map,'siglaAtual'), nU=val(cols,map,'nomeAtual');
       if ((!sA || !nA) && (!sU || !nU)){
         if (sA||nA||sU||nU) return err('Sigla e Disciplina devem vir juntas em pelo menos uma das grades');
-        return err('Nenhuma disciplina informada (preencha a grade antiga e/ou a atual)');
+        return err('Sigla e Disciplina não informadas');
       }
       var curr2008 = (sA && nA) ? { sigla:sA, nome:nA, codigo:val(cols,map,'codigoAntiga'), periodo:val(cols,map,'periodoAntiga')||'1' } : null;
       var curr2023 = (sU && nU) ? { sigla:sU, nome:nU, codigo:val(cols,map,'codigoAtual'), periodo:val(cols,map,'periodoAtual')||'1' } : null;
@@ -177,7 +148,7 @@
     }
 
     var sigla = val(cols,map,'sigla'), nome = val(cols,map,'nome');
-    if (!sigla || !nome) return err('Sigla e Disciplina são obrigatórias');
+    if (!sigla || !nome) return err('Sigla e Disciplina não informadas');
     var grade = (normalize(val(cols,map,'grade'))==='2008') ? '2008' : '2023';
     var curr = { sigla:sigla, nome:nome, codigo:val(cols,map,'codigo'), periodo:val(cols,map,'periodo')||'1' };
     return { ok:true, rowNum:rowNum, warning:warn, record:{
@@ -189,9 +160,9 @@
     }};
   }
 
-  function currentDataset(){
-    var dataset = (window.BUSSOLA_DATASETS && window.BUSSOLA_DATASETS[C]) || [];
-    if (window.BussolaStore) dataset = BussolaStore.apply(C, dataset);
+  function currentDataset(cursoKey){
+    var dataset = (window.BUSSOLA_DATASETS && window.BUSSOLA_DATASETS[cursoKey]) || [];
+    if (window.BussolaStore) dataset = BussolaStore.apply(cursoKey, dataset);
     return dataset;
   }
 
@@ -210,8 +181,8 @@
     return sessions.map(function(s){ return { day_num:s.day_num, day_label:H.DAY_FULL[s.day_num], day_short:H.DAY_SHORT[s.day_num], hour:s.hour }; });
   }
 
-  function applyRow(record, motivo){
-    var dataset = currentDataset();
+  function applyRow(cursoKey, cursoNome, record, motivo){
+    var dataset = currentDataset(cursoKey);
     var existing = findExisting(dataset, record);
     var depois = { professor:record.professor||'—', sala:record.sala||'—', vagas:record.vagas||0,
       horarios: record.sessions.map(function(s){return H.DAY_SHORT[s.day_num]+' '+H.fmtHour(s.hour);}).join(' · ')||'—' };
@@ -226,56 +197,55 @@
       if (record.curr2008) patch.curr2008 = record.curr2008;
       if (record.curr2023) patch.curr2023 = record.curr2023;
       H.saveOverride(existing.id, patch);
-      H.logAudit({ curso:C, cursoNome:(B.COURSE&&B.COURSE.nome)||C, tipo:'csv_atualizada', turmaSigla:turmaSigla, turmaNome:turmaNome, motivo:motivo, antes:antes, depois:depois });
+      H.logAudit({ curso:cursoKey, cursoNome:cursoNome, tipo:'csv_atualizada', turmaSigla:turmaSigla, turmaNome:turmaNome, motivo:motivo, antes:antes, depois:depois });
       return 'atualizada';
     }
-    window.BussolaStore.addRecord(C, {
+    window.BussolaStore.addRecord(cursoKey, {
       curr2008: record.curr2008, curr2023: record.curr2023,
       professor: record.professor, sala: record.sala, vagas: record.vagas, section: record.section,
       sessions: toSessionObjs(record.sessions)
     });
-    H.logAudit({ curso:C, cursoNome:(B.COURSE&&B.COURSE.nome)||C, tipo:'csv_criada', turmaSigla:turmaSigla, turmaNome:turmaNome, motivo:motivo, antes:{}, depois:depois });
+    H.logAudit({ curso:cursoKey, cursoNome:cursoNome, tipo:'csv_criada', turmaSigla:turmaSigla, turmaNome:turmaNome, motivo:motivo, antes:{}, depois:depois });
     return 'criada';
   }
 
-  /* ============================================================
-     TEMPLATE — espelha exatamente a planilha oficial de horários
-     (duas grades lado a lado + Horario1/Horario2 separados)
-     ============================================================ */
+  /* ---- modelo para download — espelha a planilha oficial de horários ---- */
   function downloadTemplate(){
     var header = 'SiglaAntiga,DisciplinaAntiga,CodigoAntiga,PeriodoAntiga,SiglaAtual,DisciplinaAtual,CodigoAtual,PeriodoAtual,Professor,Horario1,Horario2,Sala,Vagas';
     var ex1 = ',,,,ALGPROG/I,Algoritmos e Programação (ingressantes),TIN0222,1,Prof. Jefferson,3ª 14h,5ª 14h,Lab. 3,36';
     var ex2 = 'TP1,Técnicas de Programação I,TIN0107,1,ALGPROG/V,Algoritmos e Programação (veteranos),TIN0222,1,Prof. Reinaldo,3ª 14h,5ª 14h,Lab. SAN,30';
     var blob = new Blob([header+'\n'+ex1+'\n'+ex2+'\n'], {type:'text/csv;charset=utf-8'});
-    var a = el('a', {href: URL.createObjectURL(blob), download:'bussola_modelo_'+C+'.csv'});
+    var a = el('a', {href: URL.createObjectURL(blob), download:'bussola_modelo.csv'});
     document.body.appendChild(a); a.click(); a.remove();
   }
 
   /* ============================================================
-     CATÁLOGO DE SALAS
+     SELETOR DE CENTRO + CURSO — única informação de destino que o
+     usuário precisa dar; o CSV em si não traz essas colunas.
      ============================================================ */
-  function roomsCard(){
-    function inUse(room){ return B.RECORDS.filter(function(r){return r.sala===room;}).length; }
-    var rn = el('input',{type:'text',placeholder:'Nova sala (ex.: Sala 301)'});
-    var ra = el('button',{type:'button',class:'edit-save-btn'},['Adicionar sala']);
-    ra.onclick = function(){
-      var v = rn.value.trim(); if (!v) return;
-      BussolaStore.addRoom(C, v);
-      H.logAudit({ curso:C, cursoNome:(B.COURSE&&B.COURSE.nome)||C, tipo:'sala_add', turmaSigla:'—', turmaNome:'Catálogo de salas', motivo:'Sala adicionada ao catálogo', antes:{}, depois:{sala:v} });
-      BussolaStore.refresh();
-    };
-    var chips = el('div',{class:'ad-rooms'});
-    H.ALL_ROOMS.slice().sort().forEach(function(r){
-      var u = inUse(r), x = el('button',{type:'button',title:u?'Sala em uso por '+u+' turma(s)':'Remover sala'},['×']);
-      x.onclick = function(){
-        if (u){ x.parentNode.classList.add('shake'); setTimeout(function(){x.parentNode.classList.remove('shake');},400); return; }
-        BussolaStore.removeRoom(C, r);
-        H.logAudit({ curso:C, cursoNome:(B.COURSE&&B.COURSE.nome)||C, tipo:'sala_remove', turmaSigla:'—', turmaNome:'Catálogo de salas', motivo:'Sala removida do catálogo', antes:{sala:r}, depois:{} });
-        BussolaStore.refresh();
-      };
-      chips.appendChild(el('span',{class:'ad-chip'+(u?' used':'')},[r+(u?' · '+u:''),x]));
-    });
-    return el('div',{class:'ad-card'},[el('div',{class:'ad-head'},[el('h3',{},['Salas'])]),el('div',{class:'ad-add'},[rn,ra]),chips]);
+  function buildDestinoBox(){
+    var courses = window.BUSSOLA_COURSES || {};
+    var centros = Array.from(new Set(Object.keys(courses).map(function(k){ return courses[k].unidade; }))).sort();
+    function field(l,n){ return el('div',{class:'filter-field'},[el('label',{},[l]),n]); }
+
+    var centroSel = el('select', {});
+    centros.forEach(function(c){ var o=el('option',{value:c},[c]); if (c===B.COURSE.unidade) o.selected=true; centroSel.appendChild(o); });
+
+    var cursoSel = el('select', {});
+    function paintCursos(){
+      cursoSel.innerHTML = '';
+      Object.keys(courses).filter(function(id){ return courses[id].unidade===centroSel.value; }).forEach(function(id){
+        var o = el('option', {value:id}, [courses[id].sigla+' — '+courses[id].nome]);
+        if (id===targetCurso) o.selected = true;
+        cursoSel.appendChild(o);
+      });
+      targetCurso = cursoSel.value;
+    }
+    centroSel.addEventListener('change', paintCursos);
+    cursoSel.addEventListener('change', function(){ targetCurso = cursoSel.value; });
+    paintCursos();
+
+    return el('div', {class:'filter-bar', style:'margin-bottom:16px;'}, [field('Centro', centroSel), field('Curso de destino', cursoSel)]);
   }
 
   /* ============================================================
@@ -288,48 +258,26 @@
     root.appendChild(el('div', {class:'section-head'}, [
       el('div', {}, [
         el('h2', {}, ['Atualização de dados por planilha']),
-        el('div', {class:'desc'}, ['Caminho oficial para atualizar professores, salas e horários. O sistema reconhece automaticamente o formato da sua planilha pelo cabeçalho.'])
+        el('div', {class:'desc'}, ['Caminho oficial para professores e turmas. Escolha o destino, envie o CSV.'])
       ]),
       (function(){ var b = el('button', {type:'button', class:'csv-template-btn exmod-trigger'}, ['⚠ Ajuste excepcional']); b.onclick = function(){ window.__b_exceptional.open(); }; return b; })()
     ]));
 
     var card = el('div', {class:'csv-card'});
-
-    card.appendChild(el('div', {class:'csv-course-box'}, [
-      el('div', {}, [el('b',{},['Curso de destino: ']), (B.COURSE.unidade||'')+' · '+(B.COURSE.sigla||C)+' — '+(B.COURSE.nome||'')]),
-      el('div', {class:'csv-course-sub'}, ['A importação é sempre aplicada ao curso que você está visualizando agora. Para atualizar outro curso, abra o painel dele e importe por lá.'])
-    ]));
+    card.appendChild(buildDestinoBox());
 
     card.appendChild(el('div', {class:'csv-head'}, [
       el('div', {}, [
-        el('h3', {style:'margin:0 0 4px;'}, ['Formato da planilha']),
-        el('div', {class:'desc'}, ['Só Sigla + Disciplina (de uma das grades) são obrigatórias. O sistema identifica sozinho se a planilha traz uma grade só ou as duas lado a lado, e ignora colunas que não reconhece.'])
+        el('div', {class:'desc'}, [el('b',{},['Coluna obrigatória: ']), 'Sigla + Disciplina, de pelo menos uma das grades (antiga ou atual). O resto é opcional — o sistema reconhece o formato pelo cabeçalho.'])
       ]),
-      (function(){ var b = el('button', {type:'button', class:'csv-template-btn'}, ['⬇ Baixar modelo (.csv)']); b.onclick = downloadTemplate; return b; })()
+      (function(){ var b = el('button', {type:'button', class:'csv-template-btn'}, ['⬇ Modelo (.csv)']); b.onclick = downloadTemplate; return b; })()
     ]));
 
-    var specTable = el('table', {class:'csv-spec-table'}, [
-      el('thead', {}, [el('tr', {}, ['Coluna','Status','Aceita também','Formato / exemplo'].map(function(h){ return el('th',{},[h]); }))]),
-      el('tbody', {}, SPEC_ROWS.map(function(r){
-        return el('tr', {}, [
-          el('td', {}, [r[0]]),
-          el('td', {class: r[1]==='Obrigatória' ? 'req':'opt'}, [r[1]]),
-          el('td', {}, [r[2]]),
-          el('td', {}, [r[3]])
-        ]);
-      }))
-    ]);
-    card.appendChild(specTable);
-
-    card.appendChild(el('div', {class:'desc', style:'margin-bottom:14px;'}, [
-      'Se já existir uma turma com a mesma sigla (na mesma grade), os campos da linha sobrescrevem essa turma — inclusive nome/código/período da grade informada. Caso contrário, uma turma nova é criada.'
-    ]));
-
-    var obsInput = el('textarea', {rows:'2', placeholder:'Opcional — ex.: "Atualização do semestre 2026/2 recebida da coordenação do BSI em 07/10."'});
-    card.appendChild(el('div', {class:'edit-field'}, [el('label',{},['Observação deste lote (aparece no histórico de alterações)']), obsInput]));
+    var obsInput = el('textarea', {rows:'2', placeholder:'Observação deste lote (opcional) — aparece no histórico.'});
+    card.appendChild(el('div', {class:'edit-field'}, [el('label',{},['Observação']), obsInput]));
 
     var fileInput = el('input', {type:'file', accept:'.csv,text/csv'});
-    card.appendChild(el('div', {class:'csv-drop'}, [el('div', {}, ['Selecione o arquivo .csv exportado da sua planilha']), fileInput]));
+    card.appendChild(el('div', {class:'csv-drop'}, [el('div', {}, ['Selecione o arquivo .csv']), fileInput]));
 
     var resultsWrap = el('div', {id:'csvResultsWrap'});
     card.appendChild(resultsWrap);
@@ -343,23 +291,22 @@
         if (!rows.length){ resultsWrap.innerHTML=''; resultsWrap.appendChild(el('div',{class:'desc'},['Arquivo vazio ou ilegível.'])); return; }
         var header = buildHeaderMap(rows[0]);
         parsedRows = rows.slice(1).map(function(cols, i){ return processRow(cols, header, i+2); });
-        renderResults(header);
+        renderResults();
       };
       reader.readAsText(file, 'UTF-8');
     });
 
-    function renderResults(header){
+    function renderResults(){
       resultsWrap.innerHTML = '';
       var ok = parsedRows.filter(function(r){ return r.ok; });
       var bad = parsedRows.filter(function(r){ return !r.ok; });
       var warned = ok.filter(function(r){ return r.warning; });
 
-      resultsWrap.appendChild(el('div', {class:'desc'}, ['Formato identificado: '+(header.isDual ? 'grade dupla (antiga + atual)' : 'grade única') + '.']));
       resultsWrap.appendChild(el('div', {class:'csv-summary'}, [
-        el('div', {}, [el('div',{class:'n'},[String(parsedRows.length)]), el('div',{class:'lbl'},['linhas lidas'])]),
-        el('div', {}, [el('div',{class:'n'},[String(ok.length)]), el('div',{class:'lbl'},['prontas para gravar'])]),
-        el('div', {}, [el('div',{class:'n'},[String(bad.length)]), el('div',{class:'lbl'},['com erro (ignoradas)'])]),
-        el('div', {}, [el('div',{class:'n'},[String(warned.length)]), el('div',{class:'lbl'},['com aviso de horário'])])
+        el('div', {}, [el('div',{class:'n'},[String(parsedRows.length)]), el('div',{class:'lbl'},['linhas'])]),
+        el('div', {}, [el('div',{class:'n'},[String(ok.length)]), el('div',{class:'lbl'},['prontas']),]),
+        el('div', {}, [el('div',{class:'n'},[String(bad.length)]), el('div',{class:'lbl'},['com erro']),]),
+        el('div', {}, [el('div',{class:'n'},[String(warned.length)]), el('div',{class:'lbl'},['com aviso'])])
       ]));
 
       var tbody = el('tbody', {});
@@ -370,18 +317,15 @@
           var nomeMostrado = (rec.curr2023&&rec.curr2023.nome) || (rec.curr2008&&rec.curr2008.nome) || '—';
           tbody.appendChild(el('tr', {}, [
             el('td', {}, [String(r.rowNum)]),
-            el('td', {}, [el('span',{class:'csv-status-pill '+(r.warning?'erro':'ok')},[r.warning?'aviso':'válida'])]),
-            el('td', {}, [siglaMostrada]),
-            el('td', {}, [nomeMostrado]),
-            el('td', {}, [rec.professor||'—']),
-            el('td', {}, [rec.sala||'—']),
+            el('td', {}, [el('span',{class:'csv-status-pill '+(r.warning?'warn':'ok')},[r.warning?'aviso':'ok'])]),
+            el('td', {}, [siglaMostrada]), el('td', {}, [nomeMostrado]),
+            el('td', {}, [rec.professor||'—']), el('td', {}, [rec.sala||'—']),
             el('td', {}, [rec.sessions.map(function(s){ return H.DAY_SHORT[s.day_num]+' '+H.fmtHour(s.hour); }).join(' · ') || '—']),
             el('td', {}, [r.warning||'—'])
           ]));
         } else {
           tbody.appendChild(el('tr', {}, [
-            el('td', {}, [String(r.rowNum)]),
-            el('td', {}, [el('span',{class:'csv-status-pill erro'},['erro'])]),
+            el('td', {}, [String(r.rowNum)]), el('td', {}, [el('span',{class:'csv-status-pill erro'},['erro'])]),
             el('td', {colspan:'6'}, [r.message])
           ]));
         }
@@ -396,19 +340,20 @@
       var applyBtn = el('button', {type:'button', class:'csv-apply-btn'}, ['Aplicar '+ok.length+' alteração(ões)']);
       applyBtn.disabled = !ok.length;
       applyBtn.addEventListener('click', function(){
+        var cursoNome = (window.BUSSOLA_COURSES[targetCurso]&&window.BUSSOLA_COURSES[targetCurso].nome) || targetCurso;
         var motivo = obsInput.value.trim() || 'Importação por planilha CSV';
         var counts = { criada:0, atualizada:0 };
-        ok.forEach(function(r){ counts[applyRow(r.record, motivo)]++; });
-        resultsWrap.appendChild(el('div', {class:'edit-saved-note'}, [
-          counts.criada+' turma(s) criada(s) e '+counts.atualizada+' atualizada(s). Recarregando para aplicar ao curso atual…'
-        ]));
-        setTimeout(function(){ BussolaStore.refresh(); }, 900);
+        ok.forEach(function(r){ counts[applyRow(targetCurso, cursoNome, r.record, motivo)]++; });
+        var nota = counts.criada+' criada(s), '+counts.atualizada+' atualizada(s).';
+        if (targetCurso !== B.CURSO) nota += ' Abra o painel de '+cursoNome+' para ver o resultado.';
+        else nota += ' Recarregando…';
+        resultsWrap.appendChild(el('div', {class:'edit-saved-note'}, [nota]));
+        if (targetCurso === B.CURSO) setTimeout(function(){ BussolaStore.refresh(); }, 900);
       });
       resultsWrap.appendChild(applyBtn);
     }
 
     root.appendChild(card);
-    root.appendChild(roomsCard());
   }
 
   document.querySelector('[data-tab="csv"]').addEventListener('click', draw);

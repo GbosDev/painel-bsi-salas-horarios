@@ -23,7 +23,14 @@
     --plum-deep:  #5C4155;
     --rose:       #B65C4A;
     --rose-soft:  #EFD6CE;
-  
+
+    /* brand/header identity — overridden per curso via body[data-theme] */
+    --brand-bg:          var(--ink);
+    --brand-bg-2:        var(--ink-2);
+    --brand-accent:      var(--amber);
+    --brand-accent-soft: var(--amber-soft);
+    --brand-accent-deep: var(--amber-deep);
+
     --font-display: 'Newsreader', Georgia, serif;
     --font-body: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
   
@@ -92,7 +99,7 @@
      ============================================================ */
   .site-header{
     position:sticky; top:0; z-index:60;
-    background:var(--ink);
+    background:var(--brand-bg);
     color:var(--paper);
     border-bottom:1px solid rgba(255,255,255,.08);
   }
@@ -111,7 +118,7 @@
     white-space:nowrap;
     margin-right:4px;
   }
-  .wordmark .dot{ color:var(--amber); font-size:20px; line-height:0; }
+  .wordmark .dot{ color:var(--brand-accent); font-size:20px; line-height:0; }
   .wordmark small{
     font-family:var(--font-body); font-weight:600; font-size:10.5px;
     letter-spacing:.06em; color:rgba(246,243,236,.55);
@@ -171,7 +178,7 @@
     display:flex; align-items:center; justify-content:center; transition: background .15s, color .15s;
   }
   .course-grid-btn svg{ width:15px; height:15px; }
-  .course-grid-btn:hover, .course-grid-btn[aria-expanded="true"]{ background:var(--amber); color:var(--ink); }
+  .course-grid-btn:hover, .course-grid-btn[aria-expanded="true"]{ background:var(--brand-accent); color:var(--brand-bg); }
   .course-dropdown{
     position:absolute; top:calc(100% + 10px); left:0; width:300px; z-index:70;
     background:var(--white); border:1px solid var(--line); border-radius:10px;
@@ -241,12 +248,24 @@
      HERO
      ============================================================ */
   .hero{
-    background: linear-gradient(180deg, var(--ink) 0%, var(--ink) 55%, var(--ink-2) 100%);
+    background: linear-gradient(180deg, var(--brand-bg) 0%, var(--brand-bg) 55%, var(--brand-bg-2) 100%);
     color:var(--paper);
     padding: 40px 0 34px;
     position:relative;
     /* sem overflow:hidden — a lista de sugestões da busca precisa poder
        ultrapassar a base do hero e ficar por cima da área bege */
+  }
+  /* para professores, as abas operacionais (Painel, Atualizar dados, Histórico)
+     dispensam a faixa consultiva do hero — cada uma já tem seu próprio título */
+  body[data-tab="painel"] .hero,
+  body[data-tab="csv"] .hero,
+  body[data-tab="historico"] .hero{
+    display:none;
+  }
+  body[data-tab="painel"] main.wrap,
+  body[data-tab="csv"] main.wrap,
+  body[data-tab="historico"] main.wrap{
+    padding-top: 28px;
   }
   .hero::before{
     /* faint blueprint grid */
@@ -263,7 +282,7 @@
   .hero-copy{ max-width:640px; }
   .hero-eyebrow{
     display:flex; align-items:center; gap:10px;
-    color:var(--amber); font-weight:700; font-size:12.5px; letter-spacing:.03em;
+    color:var(--brand-accent); font-weight:700; font-size:12.5px; letter-spacing:.03em;
     margin-bottom:14px;
   }
   .hero-eyebrow .clock{
@@ -274,8 +293,8 @@
     font-size: 42px; line-height:1.08; color:var(--white); font-weight:500;
     letter-spacing:-.01em;
   }
-  .hero h1 em{ font-style:italic; color:var(--amber-soft); font-weight:500; }
-  .hero h1 .hero-h1-dot{ color:var(--amber); font-style:normal; margin:0 3px; }
+  .hero h1 em{ font-style:italic; color:var(--brand-accent-soft); font-weight:500; }
+  .hero h1 .hero-h1-dot{ color:var(--brand-accent); font-style:normal; margin:0 3px; }
   .hero p.lead{
     margin-top:14px; font-size:15.5px; color:rgba(246,243,236,.7); max-width:520px;
   }
@@ -288,7 +307,7 @@
     color:var(--white); font-size:14.5px; font-family:var(--font-body);
   }
   .hero-search-big input::placeholder{ color:rgba(246,243,236,.42); }
-  .hero-search-big input:focus{ outline:none; border-color:var(--amber); background:rgba(246,243,236,.12); }
+  .hero-search-big input:focus{ outline:none; border-color:var(--brand-accent); background:rgba(246,243,236,.12); }
   .hero-search-big svg{ position:absolute; left:15px; top:50%; transform:translateY(-50%); width:16px; height:16px; opacity:.55; }
   .hero-search-results{
     position:absolute; top:calc(100% + 8px); left:0; right:0;
@@ -306,7 +325,30 @@
   .hsr-item .sigla-chip{ font-weight:800; font-size:11px; }
   .hsr-item .nm{ font-size:13.5px; flex:1; }
   .hsr-item .meta{ font-size:11px; color:var(--slate); }
-  
+
+  /* ---- identidade visual por curso/centro (apenas cores; BSI fica como está) ---- */
+  body[data-theme="eng"]{
+    --brand-bg:          #3B332C;
+    --brand-bg-2:        #4A3F35;
+    --brand-accent:      #C98A4B;
+    --brand-accent-soft: #E9CBA4;
+    --brand-accent-deep: #9C6530;
+  }
+  body[data-theme="mat"]{
+    --brand-bg:          #2B2640;
+    --brand-bg-2:        #3A3356;
+    --brand-accent:      #9B8FD9;
+    --brand-accent-soft: #D9D2F0;
+    --brand-accent-deep: #6E62A8;
+  }
+  body[data-theme="ibio"]{
+    --brand-bg:          #223A30;
+    --brand-bg-2:        #2E4A3D;
+    --brand-accent:      #8FBB8C;
+    --brand-accent-soft: #D4E8CF;
+    --brand-accent-deep: #5E8A5B;
+  }
+
   /* now-strip: live "happening now" ticker card */
   .now-card{
     background:rgba(246,243,236,.06);

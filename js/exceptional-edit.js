@@ -16,9 +16,8 @@
   function motivoField(){
     var ta = el('textarea', {rows:'2', placeholder:'Ex.: troca de sala por conflito de reserva para prova extra em 12/11.'});
     var wrap = el('div', {class:'edit-field'}, [
-      el('label',{},['Motivo do ajuste excepcional (obrigatório)']),
-      ta,
-      el('div', {class:'exmod-hint'}, ['Esse registro fica salvo no histórico de alterações, visível para a coordenação.'])
+      el('label',{},['Motivo (obrigatório — fica no histórico)']),
+      ta
     ]);
     return { wrap:wrap, input:ta };
   }
@@ -48,7 +47,7 @@
     paint();
     var add=el('button',{type:'button',class:'edit-add-session'},['+ adicionar horário']); add.onclick=function(){working.push({day_num:1,hour:H.HOURS[0]});paint();};
     var motivo = motivoField();
-    var msg = el('div', {class:'auth-error', hidden:true}, ['Descreva o motivo do ajuste (mín. 8 caracteres).']);
+    var msg = el('div', {class:'auth-error', hidden:true}, ['Descreva o motivo (mín. 8 caracteres).']);
 
     var form = el('div', {class:'edit-form'}, [
       el('div', {class:'exmod-subject'}, [(n.sigla||'—')+' — '+(n.nome||'')]),
@@ -118,7 +117,7 @@
     var msg = el('div', {class:'auth-error', hidden:true}, ['Descreva o motivo da exclusão (mín. 8 caracteres).']);
     var form = el('div', {class:'edit-form'}, [
       el('div', {class:'exmod-subject'}, [(n.sigla||'—')+' — '+(n.nome||'')]),
-      el('div', {class:'desc'}, ['Esta turma será removida da grade. A exclusão fica registrada no histórico com o motivo abaixo.']),
+      el('div', {class:'desc'}, ['A turma será removida da grade.']),
       motivo.wrap, msg
     ]);
     var ok=el('button',{type:'button',class:'edit-save-btn'},['Confirmar exclusão']), no=el('button',{type:'button',class:'edit-cancel-btn'},['Cancelar']);
@@ -138,9 +137,35 @@
   }
 
   /* ============================================================
-     SHELL DO MODAL — busca de turma + salas (reaproveitado da antiga
-     "Administração acadêmica"), agora acessível de dentro da aba
-     "Atualizar dados" em vez de ser uma aba própria.
+     CATÁLOGO DE SALAS — gestão de pouca frequência, por isso vive
+     aqui dentro do ajuste excepcional em vez de numa aba própria.
+     ============================================================ */
+  function roomsSection(){
+    var rn = el('input',{type:'text',placeholder:'Nova sala (ex.: Sala 301)'});
+    var ra = el('button',{type:'button',class:'edit-save-btn'},['Adicionar']);
+    ra.onclick = function(){
+      var v = rn.value.trim(); if (!v) return;
+      BussolaStore.addRoom(C, v);
+      H.logAudit({ curso:C, cursoNome:(B.COURSE&&B.COURSE.nome)||C, tipo:'sala_add', turmaSigla:'—', turmaNome:'Catálogo de salas', motivo:'Sala adicionada', antes:{}, depois:{sala:v} });
+      BussolaStore.refresh();
+    };
+    var chips = el('div',{class:'ad-rooms'});
+    H.ALL_ROOMS.slice().sort().forEach(function(r){
+      var u = inUse(r), x = el('button',{type:'button',title:u?'Em uso por '+u+' turma(s)':'Remover'},['×']);
+      x.onclick = function(){
+        if (u){ x.parentNode.classList.add('shake'); setTimeout(function(){x.parentNode.classList.remove('shake');},400); return; }
+        BussolaStore.removeRoom(C, r);
+        H.logAudit({ curso:C, cursoNome:(B.COURSE&&B.COURSE.nome)||C, tipo:'sala_remove', turmaSigla:'—', turmaNome:'Catálogo de salas', motivo:'Sala removida', antes:{sala:r}, depois:{} });
+        BussolaStore.refresh();
+      };
+      chips.appendChild(el('span',{class:'ad-chip'+(u?' used':'')},[r+(u?' · '+u:''),x]));
+    });
+    return el('div',{class:'ad-card'},[el('div',{class:'ad-head'},[el('h3',{style:'margin:0;'},['Salas'])]),el('div',{class:'ad-add'},[rn,ra]),chips]);
+  }
+
+  /* ============================================================
+     SHELL DO MODAL — busca de turma, edição pontual e catálogo de
+     salas, acessível de dentro da aba "Atualizar dados".
      ============================================================ */
   function buildShell(){
     var q = '';
@@ -182,11 +207,12 @@
 
     body.appendChild(el('div', {class:'exception-banner'}, [
       el('div',{class:'exception-banner-title'},['⚠ Uso excepcional']),
-      el('div',{},['Reservado a correções pontuais e urgentes (ex.: troca de sala de última hora). Para atualizar a grade do semestre inteira, prefira a importação por planilha.'])
+      el('div',{},['Correções pontuais e urgentes. Para o semestre inteiro, use a importação por planilha.'])
     ]));
     body.appendChild(newBtn);
     body.appendChild(formWrap);
     body.appendChild(listWrap);
+    body.appendChild(roomsSection());
     return body;
   }
 

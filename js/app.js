@@ -356,7 +356,7 @@
     // data: [{label, value, color}]
     opts = opts || {};
     var w = opts.width || 480, h = opts.height || 220;
-    var padL = 30, padB = 30, padT = 14, padR = 10;
+    var padL = 30, padB = opts.rotateLabels ? 54 : 30, padT = 14, padR = 10;
     var innerW = w - padL - padR, innerH = h - padT - padB;
     var maxV = Math.max.apply(null, data.map(function(d){ return d.value; })) || 1;
     var svg = svgEl('svg', {viewBox:'0 0 '+w+' '+h, class:'bar-chart', role:'img', 'aria-label': opts.ariaLabel || 'gráfico de barras'});
@@ -382,14 +382,19 @@
         vlab.textContent = d.value;
         svg.appendChild(vlab);
       }
-      var xlab = svgEl('text', {x:x+barW/2, y:h-10, class:'axis-label', 'text-anchor':'middle'});
+      var xlab;
+      if (opts.rotateLabels){
+        xlab = svgEl('text', {x:x+barW/2, y:h-padB+16, class:'axis-label', 'text-anchor':'end', transform:'rotate(-40 '+(x+barW/2)+' '+(h-padB+16)+')'});
+      } else {
+        xlab = svgEl('text', {x:x+barW/2, y:h-10, class:'axis-label', 'text-anchor':'middle'});
+      }
       xlab.textContent = d.label;
       svg.appendChild(xlab);
     });
     container.innerHTML = '';
     container.appendChild(svg);
   }
-  
+
   function stackedBarChart(container, groups, seriesKeys, colors, opts){
     // groups: [{label, values:{key:val}}]
     opts = opts || {};
@@ -445,7 +450,7 @@
     H.ALL_ROOMS.forEach(function(r){ roomCount[r]=0; });
     RECORDS.forEach(function(r){ if (r.sala && roomCount[r.sala]!==undefined) roomCount[r.sala]+= r.sessions.length; });
     var roomData = Object.keys(roomCount).sort(function(a,b){ return roomCount[b]-roomCount[a]; }).map(function(r){ return {label:r.replace('Sala ','S.').replace('Lab. ','L.'), value:roomCount[r], color:'#B97A22'}; });
-    barChart(document.getElementById('chartSalas'), roomData, {width:440, height:210, ariaLabel:'Ocupação por sala'});
+    barChart(document.getElementById('chartSalas'), roomData, {width:440, height:230, ariaLabel:'Ocupação por sala', rotateLabels:true});
   
     // disciplinas por periodo (stacked 2023 teal / 2008 plum)
     var periods = ['1','2','3','4','5','6','7','8','9','10','A','O'];
@@ -492,8 +497,9 @@
       var hour = H.HOURS.indexOf(info.hour) !== -1
         ? info.hour
         : H.HOURS.reduce(function(best,h){ return (h <= info.hour) ? h : best; }, H.HOURS[0]);
-      state.predio = { day: day, hour: hour };
+      state.predio = { day: day, hour: hour, status: 'todas' };
     }
+    if (state.predio.status === undefined) state.predio.status = 'todas';
     return state.predio;
   }
   
@@ -521,9 +527,18 @@
     });
     hourSelect.addEventListener('change', function(){ sel.hour = parseInt(hourSelect.value, 10); renderRoomsGrid(); });
   
+    var statusSelect = el('select', {});
+    [['todas','Todas as salas'],['livres','Só livres'],['ocupadas','Só ocupadas']].forEach(function(o){
+      var opt = el('option', {value:o[0]}, [o[1]]);
+      if (o[0] === sel.status) opt.selected = true;
+      statusSelect.appendChild(opt);
+    });
+    statusSelect.addEventListener('change', function(){ sel.status = statusSelect.value; renderRoomsGrid(); });
+
     wrap.appendChild(field('Dia', daySelect));
     wrap.appendChild(field('Horário', hourSelect));
-  
+    wrap.appendChild(field('Status', statusSelect));
+
     var nowBtn = el('button', {class:'filter-reset'}, ['Ver agora']);
     nowBtn.addEventListener('click', function(){
       var info = H.nowInfo();
@@ -557,6 +572,8 @@
   
     H.ALL_ROOMS.forEach(function(room){
       var rec = roomOccupancyAt(room, sel.day, sel.hour);
+      if (sel.status === 'livres' && rec) return;
+      if (sel.status === 'ocupadas' && !rec) return;
       var card = el('div', {class:'room-card '+(rec ? 'occupied' : 'free'), 'data-room': room});
   
       card.appendChild(el('div', {class:'room-header'}, [
@@ -972,6 +989,7 @@
     document.querySelectorAll('.tab-btn').forEach(function(b){ b.setAttribute('aria-selected', String(b.getAttribute('data-tab')===tab)); });
     document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
     document.getElementById('view-'+tab).classList.add('active');
+    document.body.setAttribute('data-tab', tab);
     if (tab === 'predio'){ UI.renderRoomsGrid(); }
   }
   document.querySelectorAll('.tab-btn').forEach(function(b){ b.addEventListener('click', function(){ switchTab(b.getAttribute('data-tab')); }); });
@@ -1067,6 +1085,10 @@
      COURSE EYEBROW + SCOPE BANNER
      ============================================================ */
   function renderCourseIdentity(){
+    var THEME_MAP = { eng:'eng', mat:'mat' };
+    var theme = THEME_MAP[CURSO] || (CURSO.indexOf('ibio') === 0 ? 'ibio' : '');
+    if (theme) document.body.setAttribute('data-theme', theme);
+    else document.body.removeAttribute('data-theme');
     var painel = COURSE.painel || 'CCET';
     document.title = 'Painel ' + painel + ' · ' + (COURSE.nome || '');
     var h1 = document.querySelector('.hero h1');

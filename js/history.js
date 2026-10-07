@@ -52,7 +52,7 @@
     root.appendChild(el('div', {class:'section-head'}, [
       el('div', {}, [
         el('h2', {}, ['Histórico de alterações']),
-        el('div', {class:'desc'}, ['Toda importação por planilha e todo ajuste excepcional ficam registrados aqui — quem alterou, o quê e por quê.'])
+        el('div', {class:'desc'}, ['Quem alterou, o quê e por quê — importações e ajustes excepcionais.'])
       ])
     ]));
 
@@ -141,4 +141,10 @@
 
   document.querySelector('[data-tab="historico"]').addEventListener('click', draw);
   draw();
+
+  var saved = null; try{ saved = sessionStorage.getItem('bussola_tab'); }catch(e){}
+  if (saved && saved !== 'predio'){
+    var b = document.querySelector('[data-tab="'+saved+'"]');
+    if (b && b.style.display !== 'none') b.click();
+  }
 })();
