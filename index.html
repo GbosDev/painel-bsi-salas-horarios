@@ -1,249 +1,216 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Painel CCET X IBIO</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500;1,6..72,600&family=Manrope:wght@400;500;600;700;800&display=swap"
-    rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
-  <script src="js/auth.js"></script>
-  <script src="js/store.js"></script>
-  <script>
-    var __session = window.BussolaAuth && BussolaAuth.requireSession();
-  </script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel CCET X IBIO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500;1,6..72,600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script src="js/auth.js"></script>
+<script src="js/store.js"></script>
+<script>
+  var __session = window.BussolaAuth && BussolaAuth.requireSession();
+</script>
 </head>
-
 <body>
 
-  <div id="app">
+<div id="app">
 
-    <header class="site-header">
-      <div class="wrap header-row">
-        <div class="brand-group">
-          <span class="wordmark">Painel CCET <span class="dot">X</span> IBIO</span>
-          <div class="course-switcher">
-            <button class="course-grid-btn" id="courseGridBtn" aria-haspopup="true" aria-expanded="false"
-              title="Trocar de curso">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="7" height="7" rx="1.5" />
-                <rect x="14" y="3" width="7" height="7" rx="1.5" />
-                <rect x="3" y="14" width="7" height="7" rx="1.5" />
-                <rect x="14" y="14" width="7" height="7" rx="1.5" />
-              </svg>
-            </button>
-            <div class="course-dropdown" id="courseDropdown"></div>
-          </div>
-        </div>
-        <div class="header-controls">
-          <div class="grade-toggle" role="group" aria-label="Grade curricular exibida">
-            <button class="g2023" data-grade="2023" aria-pressed="true">Grade 2023</button>
-            <button class="g2008" data-grade="2008" aria-pressed="false">Grade 2008</button>
-          </div>
-          <div class="global-search">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M21 21l-4.3-4.3" />
-            </svg>
-            <input type="text" id="headerSearch" placeholder="Buscar sigla, sala, professor…" autocomplete="off">
-          </div>
-          <div class="user-badge" id="userBadge"></div>
+  <header class="site-header">
+    <div class="wrap header-row">
+      <div class="brand-group">
+        <span class="wordmark">Painel CCET <span class="dot">X</span> IBIO</span>
+        <div class="course-switcher">
+          <button class="course-grid-btn" id="courseGridBtn" aria-haspopup="true" aria-expanded="false" title="Trocar de curso">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          </button>
+          <div class="course-dropdown" id="courseDropdown"></div>
         </div>
       </div>
-      <div class="wrap header-tabsrow">
-        <nav class="tabs" role="tablist" aria-label="Seções do painel">
-          <button class="tab-btn" role="tab" data-tab="predio" aria-selected="true"><span
-              class="num">01</span>Salas</button>
-          <button class="tab-btn" role="tab" data-tab="grade" aria-selected="false"><span class="num">02</span>Grade
-            horária</button>
-          <button class="tab-btn" role="tab" data-tab="disciplinas" aria-selected="false"><span
-              class="num">03</span>Disciplinas</button>
-          <button class="tab-btn" role="tab" data-tab="plano" aria-selected="false" id="tabPlanoBtn"><span
-              class="num">04</span>Meu plano</button>
-          <button class="tab-btn" role="tab" data-tab="painel" aria-selected="false" id="tabPainelBtn"><span
-              class="num">04</span>Painel</button>
-          <button class="tab-btn" role="tab" data-tab="csv" aria-selected="false" id="tabCsvBtn"><span
-              class="num">05</span>Atualizar dados</button>
-          <button class="tab-btn" role="tab" data-tab="admin" aria-selected="false" id="tabAdminBtn"><span
-              class="num">06</span>Ajuste excepcional</button>
-        </nav>
-      </div>
-    </header>
-
-    <section class="hero">
-      <div class="wrap hero-inner">
-        <div class="hero-copy">
-          <div class="hero-eyebrow">
-            <span id="courseEyebrow">BACHARELADO EM SISTEMAS DE INFORMAÇÃO · 2026/2</span>
-            <span class="clock" id="liveClock">—</span>
-          </div>
-          <h1>Painel CCET <span class="hero-h1-dot">X</span> IBIO</h1>
-          <p class="lead">Localize disciplinas, salas e horários da grade atual e da grade antiga em um só lugar — de
-            olho no que está rolando agora mesmo no seu curso.</p>
-          <div class="hero-search-big">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M21 21l-4.3-4.3" />
-            </svg>
-            <input type="text" id="heroSearch"
-              placeholder="Digite a sigla da disciplina, o nome do professor ou a sala…" autocomplete="off">
-            <div class="hero-search-results" id="heroSearchResults"></div>
-          </div>
+      <div class="header-controls">
+        <div class="grade-toggle" role="group" aria-label="Grade curricular exibida">
+          <button class="g2023" data-grade="2023" aria-pressed="true">Grade 2023</button>
+          <button class="g2008" data-grade="2008" aria-pressed="false">Grade 2008</button>
         </div>
-        <div class="now-card">
-          <div class="lbl"><span class="pulse"></span> ACONTECENDO AGORA</div>
-          <div class="now-list" id="nowList"></div>
+        <div class="global-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="headerSearch" placeholder="Buscar sigla, sala, professor…" autocomplete="off">
+        </div>
+        <div class="user-badge" id="userBadge"></div>
+      </div>
+    </div>
+    <div class="wrap header-tabsrow">
+      <nav class="tabs" role="tablist" aria-label="Seções do painel">
+        <button class="tab-btn" role="tab" data-tab="predio" aria-selected="true"><span class="num">01</span>Salas</button>
+        <button class="tab-btn" role="tab" data-tab="grade" aria-selected="false"><span class="num">02</span>Grade horária</button>
+        <button class="tab-btn" role="tab" data-tab="disciplinas" aria-selected="false"><span class="num">03</span>Disciplinas</button>
+        <button class="tab-btn" role="tab" data-tab="plano" aria-selected="false" id="tabPlanoBtn"><span class="num">04</span>Meu plano</button>
+        <button class="tab-btn" role="tab" data-tab="painel" aria-selected="false" id="tabPainelBtn"><span class="num">04</span>Painel</button>
+        <button class="tab-btn" role="tab" data-tab="csv" aria-selected="false" id="tabCsvBtn"><span class="num">05</span>Atualizar dados</button>
+        <button class="tab-btn" role="tab" data-tab="historico" aria-selected="false" id="tabHistoricoBtn"><span class="num">06</span>Histórico</button>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="wrap hero-inner">
+      <div class="hero-copy">
+        <div class="hero-eyebrow">
+          <span id="courseEyebrow">BACHARELADO EM SISTEMAS DE INFORMAÇÃO · 2026/2</span>
+          <span class="clock" id="liveClock">—</span>
+        </div>
+        <h1>Painel CCET <span class="hero-h1-dot">X</span> IBIO</h1>
+        <p class="lead">Localize disciplinas, salas e horários da grade atual e da grade antiga em um só lugar — de olho no que está rolando agora mesmo no seu curso.</p>
+        <div class="hero-search-big">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="heroSearch" placeholder="Digite a sigla da disciplina, o nome do professor ou a sala…" autocomplete="off">
+          <div class="hero-search-results" id="heroSearchResults"></div>
+        </div>
+      </div>
+      <div class="now-card">
+        <div class="lbl"><span class="pulse"></span> ACONTECENDO AGORA</div>
+        <div class="now-list" id="nowList"></div>
+      </div>
+    </div>
+  </section>
+
+  <main class="wrap">
+
+    <div class="scope-banner" id="scopeBanner" hidden></div>
+
+    <!-- ================= SALAS (ocupação) ================= -->
+    <section class="view active" id="view-predio">
+      <div class="section-head">
+        <div>
+          <h2>Ocupação das salas</h2>
+          <div class="desc">Veja, sala por sala, quem está ou não ocupando cada espaço em um dia e horário específicos. Use o alternador de grade no topo da página para trocar entre 2023 e 2008.</div>
+        </div>
+      </div>
+      <div class="filter-bar" id="filterBarPredio"></div>
+      <div class="rooms-legend">
+        <div class="legend-item"><span class="dot-status occupied"></span>Ocupada</div>
+        <div class="legend-item"><span class="dot-status free"></span>Livre</div>
+      </div>
+      <div class="rooms-grid" id="roomsGrid"></div>
+      </section>
+
+    <!-- ================= GRADE HORÁRIA ================= -->
+    <section class="view" id="view-grade">
+      <div class="section-head">
+        <div>
+          <h2>Grade horária semanal</h2>
+          <div class="desc">Mural com todas as aulas da semana. Passe o mouse sobre a sigla para ver o nome completo da disciplina.</div>
+        </div>
+      </div>
+      <div class="filter-bar" id="filterBarGrade"></div>
+      <div class="schedule-board">
+        <div class="sb-grid" id="scheduleGrid"></div>
+      </div>
+    </section>
+
+    <!-- ================= DISCIPLINAS ================= -->
+    <section class="view" id="view-disciplinas">
+      <div class="section-head">
+        <div>
+          <h2>Índice de disciplinas</h2>
+          <div class="desc">Correspondência entre a grade antiga (2008) e a atual (2023), com professor, sala e horário.</div>
+        </div>
+      </div>
+      <div class="filter-bar" id="filterBarDisc"></div>
+      <div class="index-table-wrap">
+        <table class="index-table" id="discTable">
+          <thead>
+            <tr>
+              <th data-sort="sigla">Sigla <span class="sort-arrow">↕</span></th>
+              <th data-sort="nome">Disciplina <span class="sort-arrow">↕</span></th>
+              <th data-sort="grade">Grade <span class="sort-arrow">↕</span></th>
+              <th data-sort="periodo">Período <span class="sort-arrow">↕</span></th>
+              <th data-sort="professor">Professor <span class="sort-arrow">↕</span></th>
+              <th data-sort="sala">Sala <span class="sort-arrow">↕</span></th>
+              <th data-sort="horarios">Horários</th>
+            </tr>
+          </thead>
+          <tbody id="discTbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= PAINEL (só professor) ================= -->
+    <section class="view" id="view-painel">
+      <div class="kpi-row" id="kpiRow"></div>
+
+      <div class="section-head">
+        <div>
+          <h2>Panorama da oferta</h2>
+          <div class="desc">Como as aulas do semestre se distribuem entre dias, salas e períodos.</div>
+        </div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-panel">
+          <h3>Aulas por dia da semana</h3>
+          <div class="chart-sub">Total de sessões semanais alocadas, por dia</div>
+          <div id="chartDias"></div>
+        </div>
+        <div class="chart-panel">
+          <h3>Ocupação por sala</h3>
+          <div class="chart-sub">Sessões semanais por sala física</div>
+          <div id="chartSalas"></div>
+        </div>
+        <div class="chart-panel full">
+          <h3>Disciplinas por período</h3>
+          <div class="chart-sub">Grade 2023 (atual) em teal · Grade 2008 (antiga) em ameixa · períodos O = optativas, A = atividades complementares/extensão</div>
+          <div id="chartPeriodos"></div>
+          <div class="legend-row">
+            <div class="legend-item"><span class="legend-swatch" style="background:var(--teal)"></span>Grade 2023 — atual</div>
+            <div class="legend-item"><span class="legend-swatch" style="background:var(--plum)"></span>Grade 2008 — em extinção</div>
+          </div>
         </div>
       </div>
     </section>
 
-    <main class="wrap">
+    <section class="view" id="view-plano"></section>
+    <section class="view" id="view-csv"></section>
+    <section class="view" id="view-historico"></section>
 
-      <div class="scope-banner" id="scopeBanner" hidden></div>
+  </main>
 
-      <!-- ================= SALAS (ocupação) ================= -->
-      <section class="view active" id="view-predio">
-        <div class="section-head">
-          <div>
-            <h2>Ocupação das salas</h2>
-            <div class="desc">Veja, sala por sala, quem está ou não ocupando cada espaço em um dia e horário
-              específicos. Use o alternador de grade no topo da página para trocar entre 2023 e 2008.</div>
-          </div>
-        </div>
-        <div class="filter-bar" id="filterBarPredio"></div>
-        <div class="rooms-legend">
-          <div class="legend-item"><span class="dot-status occupied"></span>Ocupada</div>
-          <div class="legend-item"><span class="dot-status free"></span>Livre</div>
-        </div>
-        <div class="rooms-grid" id="roomsGrid"></div>
-      </section>
-
-      <!-- ================= GRADE HORÁRIA ================= -->
-      <section class="view" id="view-grade">
-        <div class="section-head">
-          <div>
-            <h2>Grade horária semanal</h2>
-            <div class="desc">Mural com todas as aulas da semana. Passe o mouse sobre a sigla para ver o nome completo
-              da disciplina.</div>
-          </div>
-        </div>
-        <div class="filter-bar" id="filterBarGrade"></div>
-        <div class="schedule-board">
-          <div class="sb-grid" id="scheduleGrid"></div>
-        </div>
-      </section>
-
-      <!-- ================= DISCIPLINAS ================= -->
-      <section class="view" id="view-disciplinas">
-        <div class="section-head">
-          <div>
-            <h2>Índice de disciplinas</h2>
-            <div class="desc">Correspondência entre a grade antiga (2008) e a atual (2023), com professor, sala e
-              horário.</div>
-          </div>
-        </div>
-        <div class="filter-bar" id="filterBarDisc"></div>
-        <div class="index-table-wrap">
-          <table class="index-table" id="discTable">
-            <thead>
-              <tr>
-                <th data-sort="sigla">Sigla <span class="sort-arrow">↕</span></th>
-                <th data-sort="nome">Disciplina <span class="sort-arrow">↕</span></th>
-                <th data-sort="grade">Grade <span class="sort-arrow">↕</span></th>
-                <th data-sort="periodo">Período <span class="sort-arrow">↕</span></th>
-                <th data-sort="professor">Professor <span class="sort-arrow">↕</span></th>
-                <th data-sort="sala">Sala <span class="sort-arrow">↕</span></th>
-                <th data-sort="horarios">Horários</th>
-              </tr>
-            </thead>
-            <tbody id="discTbody"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- ================= PAINEL (só professor) ================= -->
-      <section class="view" id="view-painel">
-        <div class="kpi-row" id="kpiRow"></div>
-
-        <div class="section-head">
-          <div>
-            <h2>Panorama da oferta</h2>
-            <div class="desc">Como as aulas do semestre se distribuem entre dias, salas e períodos.</div>
-          </div>
-        </div>
-        <div class="charts-grid">
-          <div class="chart-panel">
-            <h3>Aulas por dia da semana</h3>
-            <div class="chart-sub">Total de sessões semanais alocadas, por dia</div>
-            <div id="chartDias"></div>
-          </div>
-          <div class="chart-panel">
-            <h3>Ocupação por sala</h3>
-            <div class="chart-sub">Sessões semanais por sala física</div>
-            <div id="chartSalas"></div>
-          </div>
-          <div class="chart-panel full">
-            <h3>Disciplinas por período</h3>
-            <div class="chart-sub">Grade 2023 (atual) em teal · Grade 2008 (antiga) em ameixa · períodos O = optativas,
-              A = atividades complementares/extensão</div>
-            <div id="chartPeriodos"></div>
-            <div class="legend-row">
-              <div class="legend-item"><span class="legend-swatch" style="background:var(--teal)"></span>Grade 2023 —
-                atual</div>
-              <div class="legend-item"><span class="legend-swatch" style="background:var(--plum)"></span>Grade 2008 — em
-                extinção</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="view" id="view-plano"></section>
-      <section class="view" id="view-csv"></section>
-      <section class="view" id="view-admin"></section>
-
-    </main>
-
-    <footer>
-      <div class="wrap foot-row">
-        <div class="foot-legend" id="footLegend">
-          <div class="legend-item"><span class="legend-swatch" style="background:var(--teal)"></span>Grade 2023</div>
-          <div class="legend-item"><span class="legend-swatch" style="background:var(--plum)"></span>Grade 2008</div>
-          <div class="legend-item"><span class="legend-swatch" style="background:var(--rose)"></span>Em aula agora</div>
-        </div>
+  <footer>
+    <div class="wrap foot-row">
+      <div class="foot-legend" id="footLegend">
+        <div class="legend-item"><span class="legend-swatch" style="background:var(--teal)"></span>Grade 2023</div>
+        <div class="legend-item"><span class="legend-swatch" style="background:var(--plum)"></span>Grade 2008</div>
+        <div class="legend-item"><span class="legend-swatch" style="background:var(--rose)"></span>Em aula agora</div>
       </div>
-    </footer>
-
-  </div>
-
-  <div id="tooltip"></div>
-  <div class="drawer-backdrop" id="drawerBackdrop"></div>
-  <aside class="drawer" id="drawer">
-    <div class="drawer-head">
-      <button class="drawer-close" id="drawerClose" aria-label="Fechar">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2">
-          <path d="M18 6L6 18M6 6l12 12" />
-        </svg>
-      </button>
-      <div class="dh-sigla" id="drawerSigla"></div>
-      <h3 id="drawerTitle"></h3>
     </div>
-    <div class="drawer-body" id="drawerBody"></div>
-  </aside>
+  </footer>
 
-  <script src="data/horario-data.js"></script>
-  <script src="data/ementas.js"></script>
-  <script src="data/ibio-data.js"></script>
-  <script src="data/eng-data.js"></script>
-  <script src="data/courses-data.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/planner.js"></script>
-  <script src="js/csv-import.js"></script>
-  <script src="js/admin.js"></script>
+</div>
+
+<div id="tooltip"></div>
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <button class="drawer-close" id="drawerClose" aria-label="Fechar">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="dh-sigla" id="drawerSigla"></div>
+    <h3 id="drawerTitle"></h3>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+
+<script src="data/horario-data.js"></script>
+<script src="data/ementas.js"></script>
+<script src="data/ibio-data.js"></script>
+<script src="data/eng-data.js"></script>
+<script src="data/courses-data.js"></script>
+<script src="js/app.js"></script>
+<script src="js/planner.js"></script>
+<script src="js/exceptional-edit.js"></script>
+<script src="js/csv-import.js"></script>
+<script src="js/history.js"></script>
 
 </body>
-
 </html>

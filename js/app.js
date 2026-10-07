@@ -35,9 +35,34 @@
       if (patch.vagas !== undefined) rec.vagas = patch.vagas;
       if (patch.section) rec.section = patch.section;
       if (patch.sessions) rec.sessions = patch.sessions;
+      if (patch.curr2008) rec.curr2008 = patch.curr2008;
+      if (patch.curr2023) rec.curr2023 = patch.curr2023;
       rec._overridden = true;
     });
   })();
+
+  /* ============================================================
+     AUDITORIA — histórico de alterações (global, cruza todos os cursos,
+     porque um coordenador acompanha o painel como um todo).
+     ============================================================ */
+  var AUDIT_KEY = 'bussola_audit';
+  var AUDIT_MAX = 500;
+  function loadAudit(){
+    try{ return JSON.parse(localStorage.getItem(AUDIT_KEY)) || []; }catch(e){ return []; }
+  }
+  /* entry: { curso, cursoNome, tipo, turmaSigla, turmaNome, motivo, antes, depois } —
+     id/ts/autor/autorRole são preenchidos aqui para nunca ficarem inconsistentes. */
+  function logAudit(entry){
+    var all = loadAudit();
+    all.unshift(Object.assign({
+      id: Date.now() + '-' + Math.floor(Math.random()*1000),
+      ts: Date.now(),
+      autor: (SESSION && SESSION.nome) || 'desconhecido',
+      autorRole: (SESSION && SESSION.role) || '—'
+    }, entry));
+    if (all.length > AUDIT_MAX) all.length = AUDIT_MAX;
+    localStorage.setItem(AUDIT_KEY, JSON.stringify(all));
+  }
   
   var DAY_ORDER = [1,2,3,4,5,6]; // Mon..Sat
   var DAY_SHORT = {1:'SEG',2:'TER',3:'QUA',4:'QUI',5:'SEX',6:'SÁB'};
@@ -193,7 +218,7 @@
   window.__b_helpers = { el:el, fmtHour:fmtHour, profShort:profShort, nowInfo:nowInfo, sessionStatus:sessionStatus,
     roomStatusToday:roomStatusToday, subjectLabel:subjectLabel, flattenSubjects:flattenSubjects,
     roomBuildingFloor:roomBuildingFloor, ALL_ROOMS:ALL_ROOMS, DAY_ORDER:DAY_ORDER, DAY_SHORT:DAY_SHORT, DAY_FULL:DAY_FULL, HOURS:HOURS,
-    saveOverride:saveOverride };
+    saveOverride:saveOverride, logAudit:logAudit, getAudit:loadAudit };
   
   })();
   (function(){
@@ -940,7 +965,7 @@
      TAB SWITCHING
      ============================================================ */
   function switchTab(tab){
-    if ((tab === 'painel' || tab === 'admin' || tab === 'csv') && !IS_PROFESSOR) return;
+    if ((tab === 'painel' || tab === 'historico' || tab === 'csv') && !IS_PROFESSOR) return;
     if (tab === 'plano' && IS_PROFESSOR) return;
     try{ sessionStorage.setItem('bussola_tab', tab); }catch(e){} // aluno não tem acesso ao painel de métricas
     state.tab = tab;
@@ -955,7 +980,7 @@
      ROLE GATING — só professor vê/acessa o Painel de métricas
      ============================================================ */
   function applyRoleGating(){
-    ['tabAdminBtn','tabPainelBtn','tabCsvBtn'].forEach(function(id){ var b=document.getElementById(id); if(b && !IS_PROFESSOR) b.style.display='none'; });
+    ['tabHistoricoBtn','tabPainelBtn','tabCsvBtn'].forEach(function(id){ var b=document.getElementById(id); if(b && !IS_PROFESSOR) b.style.display='none'; });
     var tp=document.getElementById('tabPlanoBtn'); if(tp && IS_PROFESSOR) tp.style.display='none';
     var painelBtn = document.getElementById('tabPainelBtn');
     if (!IS_PROFESSOR){
