@@ -9,6 +9,7 @@
   function sel(opts, val, ph) { var s = el('select', {}); if (ph) s.appendChild(el('option', { value: '' }, [ph])); opts.forEach(function (o) { var op = el('option', { value: String(o[0]) }, [o[1]]); if (String(o[0]) === String(val)) op.selected = true; s.appendChild(op); }); return s; }
   function fld(l, n) { return el('div', { class: 'edit-field' }, [el('label', {}, [l]), n]); }
 
+  /* Criação pontual de uma turma nova — fora do fluxo de importação por CSV. */
   function newTurmaForm() {
     var f = el('div', { class: 'ad-form' }), inp = function (p, t) { return el('input', { type: t || 'text', placeholder: p }); };
     var sigla = inp('Sigla'), nome = inp('Disciplina'), cod = inp('Código'), per = inp('Período'), prof = inp('Professor(a)'), vagas = inp('Vagas', 'number');
@@ -35,6 +36,9 @@
     return f;
   }
 
+  /* Edição excepcional de uma turma já existente (ex.: troca de sala de
+     última hora). Substitui a antiga edição inline do drawer, que foi
+     removida — agora essa é a única porta de edição pontual do sistema. */
   function editTurmaForm(rec, onDone) {
     var f = el('div', { class: 'edit-form' });
     var profInput = el('input', { type: 'text', value: rec.professor || '' });

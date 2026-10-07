@@ -1,79 +1,93 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Entrar — Painel CCET X IBIO</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500;1,6..72,600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
-<script src="js/auth.js"></script>
-<script>
-  /* se já tem sessão, pula direto pra home */
-  if (window.BussolaAuth && BussolaAuth.getSession()) { location.href = 'index.html'; }
-</script>
-</head>
-<body class="auth-body">
-<div class="auth-split">
-  <aside class="auth-side">
-    <div class="auth-rings"><i></i><i></i><i></i></div>
-    <div class="auth-side-copy"><h2>Painel CCET X IBIO</h2><p>Salas, horários e planejamento acadêmico dos cursos em um só lugar.</p></div>
-  </aside>
-  <div class="auth-wrap">
-  <div class="auth-card">
-    <h1>Bem-vindo(a)</h1>
-    <p class="auth-lead">Entre com seu usuário para acessar o painel.</p>
-    <form id="loginForm" autocomplete="off">
-      <div class="auth-field">
-        <label for="user">Usuário</label>
-        <input type="text" id="user" name="user" placeholder="seu usuário" autocomplete="username">
-      </div>
-      <div class="auth-field">
-        <label for="pass">Senha</label>
-        <input type="password" id="pass" name="pass" placeholder="sua senha" autocomplete="current-password">
-      </div>
-      <div class="auth-error" id="authError" hidden>Usuário ou senha incorretos. Confira as credenciais de teste abaixo.</div>
-      <button type="submit" class="auth-submit">Entrar</button>
-    </form>
 
-    <div class="auth-demo">
-      <div class="auth-demo-title">Contas de teste</div>
-      <div class="auth-chips">
-        <button type="button" class="auth-demo-row" data-user="ana" data-pass="aluno1"><span class="role-badge aluno">Aluna</span> Ana</button>
-        <button type="button" class="auth-demo-row" data-user="pedro" data-pass="aluno2"><span class="role-badge aluno">Aluno</span> Pedro</button>
-        <button type="button" class="auth-demo-row" data-user="jefferson" data-pass="jef2026"><span class="role-badge professor">Prof.</span> Jefferson</button>
-        <button type="button" class="auth-demo-row" data-user="jobson" data-pass="job2026"><span class="role-badge professor">Prof.</span> Jobson</button>
-        <button type="button" class="auth-demo-row" data-user="geiza" data-pass="gei2026"><span class="role-badge professor">Profa.</span> Geiza</button>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entrar — Painel CCET X IBIO</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500;1,6..72,600&family=Manrope:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/auth.js"></script>
+  <script>
+    /* se já tem sessão, pula direto pra home */
+    if (window.BussolaAuth && BussolaAuth.getSession()) { location.href = 'index.html'; }
+  </script>
+</head>
+
+<body class="auth-body">
+  <div class="auth-split">
+    <aside class="auth-side">
+      <div class="auth-rings"><i></i><i></i><i></i></div>
+      <div class="auth-side-copy">
+        <h2>Painel CCET X IBIO</h2>
+        <p>Salas, horários e planejamento acadêmico dos cursos em um só lugar.</p>
+      </div>
+    </aside>
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <h1>Bem-vindo(a)</h1>
+        <p class="auth-lead">Entre com seu usuário para acessar o painel.</p>
+        <form id="loginForm" autocomplete="off">
+          <div class="auth-field">
+            <label for="user">Usuário</label>
+            <input type="text" id="user" name="user" placeholder="seu usuário" autocomplete="username">
+          </div>
+          <div class="auth-field">
+            <label for="pass">Senha</label>
+            <input type="password" id="pass" name="pass" placeholder="sua senha" autocomplete="current-password">
+          </div>
+          <div class="auth-error" id="authError" hidden>Usuário ou senha incorretos. Confira as credenciais de teste
+            abaixo.</div>
+          <button type="submit" class="auth-submit">Entrar</button>
+        </form>
+
+        <div class="auth-demo">
+          <div class="auth-demo-title">Contas de teste</div>
+          <div class="auth-chips">
+            <button type="button" class="auth-demo-row" data-user="ana" data-pass="aluno1"><span
+                class="role-badge aluno">Aluna</span> Ana</button>
+            <button type="button" class="auth-demo-row" data-user="pedro" data-pass="aluno2"><span
+                class="role-badge aluno">Aluno</span> Pedro</button>
+            <button type="button" class="auth-demo-row" data-user="jefferson" data-pass="jef2026"><span
+                class="role-badge professor">Prof.</span> Jefferson</button>
+            <button type="button" class="auth-demo-row" data-user="jobson" data-pass="job2026"><span
+                class="role-badge professor">Prof.</span> Jobson</button>
+            <button type="button" class="auth-demo-row" data-user="geiza" data-pass="gei2026"><span
+                class="role-badge professor">Profa.</span> Geiza</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
-  </div>
-</div>
-<script>
-(function(){
-  var form = document.getElementById('loginForm');
-  var userInp = document.getElementById('user');
-  var passInp = document.getElementById('pass');
-  var errBox = document.getElementById('authError');
+  <script>
+    (function () {
+      var form = document.getElementById('loginForm');
+      var userInp = document.getElementById('user');
+      var passInp = document.getElementById('pass');
+      var errBox = document.getElementById('authError');
 
-  document.querySelectorAll('.auth-demo-row').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      userInp.value = btn.getAttribute('data-user');
-      passInp.value = btn.getAttribute('data-pass');
-      errBox.hidden = true;
-      userInp.focus();
-    });
-  });
+      document.querySelectorAll('.auth-demo-row').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          userInp.value = btn.getAttribute('data-user');
+          passInp.value = btn.getAttribute('data-pass');
+          errBox.hidden = true;
+          userInp.focus();
+        });
+      });
 
-  form.addEventListener('submit', function(e){
-    e.preventDefault();
-    var ok = BussolaAuth.login(userInp.value.trim(), passInp.value);
-    if (ok){ location.href = 'index.html'; }
-    else { errBox.hidden = false; passInp.value = ''; passInp.focus(); }
-  });
-})();
-</script>
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var ok = BussolaAuth.login(userInp.value.trim(), passInp.value);
+        if (ok) { location.href = 'index.html'; }
+        else { errBox.hidden = false; passInp.value = ''; passInp.focus(); }
+      });
+    })();
+  </script>
 
 </body>
+
 </html>

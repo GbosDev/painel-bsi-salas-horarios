@@ -12,6 +12,9 @@
     d.rooms.added.forEach(function (r) { if (arr.indexOf(r) < 0) arr.push(r); });
     d.rooms.removed.forEach(function (r) { var i = arr.indexOf(r); if (i >= 0) arr.splice(i, 1); });
   }
+  /* nextId() evita colisão de ID quando vários registros são criados no mesmo
+     laço síncrono (ex.: importação de CSV com várias linhas) — Date.now()
+     isolado podia repetir o mesmo milissegundo para duas turmas. */
   function addRecord(c, rec) { var d = load(c); rec.id = nextId(); d.added.push(rec); save(c, d); return rec.id; }
   function removeRecord(c, id) {
     var d = load(c); var n = d.added.length; d.added = d.added.filter(function (r) { return r.id !== id; }); if (d.added.length === n) d.deleted.push(id); save(c, d);
