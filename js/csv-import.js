@@ -209,14 +209,64 @@
     return 'criada';
   }
 
-  /* ---- modelo para download — espelha a planilha oficial de horários ---- */
+  /* ---- modelo (download + tabela de exemplo na tela) — espelha a
+     planilha oficial de horários; uma única fonte de dados para os
+     dois usos, garantindo que a tabela exibida é fiel ao .csv gerado ---- */
+  var TEMPLATE_COLS = [
+    { h:'SiglaAntiga',      req:'par' },
+    { h:'DisciplinaAntiga', req:'par' },
+    { h:'CodigoAntiga',     req:false },
+    { h:'PeriodoAntiga',    req:false },
+    { h:'SiglaAtual',       req:'par' },
+    { h:'DisciplinaAtual',  req:'par' },
+    { h:'CodigoAtual',      req:false },
+    { h:'PeriodoAtual',     req:false },
+    { h:'Professor',        req:false },
+    { h:'Horario1',         req:false },
+    { h:'Horario2',         req:false },
+    { h:'Sala',             req:false },
+    { h:'Vagas',            req:false }
+  ];
+  var TEMPLATE_ROWS = [
+    ['','','','','ALGPROG/I','Algoritmos e Programação (ingressantes)','TIN0222','1','Prof. Jefferson','3ª 14h','5ª 14h','Lab. 3','36'],
+    ['TP1','Técnicas de Programação I','TIN0107','1','ALGPROG/V','Algoritmos e Programação (veteranos)','TIN0222','1','Prof. Reinaldo','3ª 14h','5ª 14h','Lab. SAN','30']
+  ];
+
   function downloadTemplate(){
-    var header = 'SiglaAntiga,DisciplinaAntiga,CodigoAntiga,PeriodoAntiga,SiglaAtual,DisciplinaAtual,CodigoAtual,PeriodoAtual,Professor,Horario1,Horario2,Sala,Vagas';
-    var ex1 = ',,,,ALGPROG/I,Algoritmos e Programação (ingressantes),TIN0222,1,Prof. Jefferson,3ª 14h,5ª 14h,Lab. 3,36';
-    var ex2 = 'TP1,Técnicas de Programação I,TIN0107,1,ALGPROG/V,Algoritmos e Programação (veteranos),TIN0222,1,Prof. Reinaldo,3ª 14h,5ª 14h,Lab. SAN,30';
-    var blob = new Blob([header+'\n'+ex1+'\n'+ex2+'\n'], {type:'text/csv;charset=utf-8'});
+    var header = TEMPLATE_COLS.map(function(c){ return c.h; }).join(',');
+    var rows = TEMPLATE_ROWS.map(function(r){ return r.join(','); });
+    var blob = new Blob([header+'\n'+rows.join('\n')+'\n'], {type:'text/csv;charset=utf-8'});
     var a = el('a', {href: URL.createObjectURL(blob), download:'bussola_modelo.csv'});
     document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  /* ---- orientações + tabela de exemplo (substitui o antigo texto único) ---- */
+  function buildGuideSection(){
+    var guide = el('div', {class:'desc'}, [
+      'Envie um ', el('b',{},['arquivo .csv']), '. Em cada linha, informe Sigla + Disciplina de ',
+      el('b',{},['pelo menos uma das grades']), ' (antiga ou atual) — o resto é opcional, e o sistema reconhece o formato pelo nome das colunas abaixo. Confira o exemplo, prepare seu arquivo nesse formato e selecione-o para enviar.'
+    ]);
+
+    var thead = el('thead', {}, [el('tr', {}, TEMPLATE_COLS.map(function(c){
+      return el('th', {}, [c.h, el('span', {class:'csv-status-pill '+(c.req==='par'?'warn':'ok'), style:'margin-left:6px;'}, [c.req==='par' ? 'obrig.*' : 'opcional'])]);
+    }))]);
+    var tbody = el('tbody', {}, TEMPLATE_ROWS.map(function(r){
+      return el('tr', {}, r.map(function(v){ return el('td', {}, [v || '—']); }));
+    }));
+
+    var exampleWrap = el('div', {class:'csv-preview-wrap', style:'max-height:none;'}, [
+      el('table', {class:'csv-preview-table'}, [thead, tbody])
+    ]);
+
+    var legend = el('div', {class:'desc'}, [
+      el('span',{class:'csv-status-pill warn',style:'margin-right:5px;'},['obrig.*']), 'pelo menos um par (antiga ou atual) · ',
+      el('span',{class:'csv-status-pill ok',style:'margin-right:5px;'},['opcional']), 'demais colunas'
+    ]);
+
+    var tplBtn = el('button', {type:'button', class:'csv-template-btn'}, ['⬇ Modelo (.csv)']);
+    tplBtn.onclick = downloadTemplate;
+
+    return el('div', {class:'csv-guide'}, [guide, exampleWrap, legend, tplBtn]);
   }
 
   /* ============================================================
@@ -266,12 +316,7 @@
     var card = el('div', {class:'csv-card'});
     card.appendChild(buildDestinoBox());
 
-    card.appendChild(el('div', {class:'csv-head'}, [
-      el('div', {}, [
-        el('div', {class:'desc'}, [el('b',{},['Coluna obrigatória: ']), 'Sigla + Disciplina, de pelo menos uma das grades (antiga ou atual). O resto é opcional — o sistema reconhece o formato pelo cabeçalho.'])
-      ]),
-      (function(){ var b = el('button', {type:'button', class:'csv-template-btn'}, ['⬇ Modelo (.csv)']); b.onclick = downloadTemplate; return b; })()
-    ]));
+    card.appendChild(buildGuideSection());
 
     var obsInput = el('textarea', {rows:'2', placeholder:'Observação deste lote (opcional) — aparece no histórico.'});
     card.appendChild(el('div', {class:'edit-field'}, [el('label',{},['Observação']), obsInput]));

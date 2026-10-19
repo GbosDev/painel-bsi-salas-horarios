@@ -711,16 +711,6 @@
       }
     }
   
-    if (rec.sala){
-      var goBtn = el('button', {class:'filter-reset', style:'margin-top:16px; width:100%;'}, ['Ver esta sala na ocupação →']);
-      goBtn.addEventListener('click', function(){
-        closeDrawer();
-        switchTab('predio');
-        UI.highlightRoom(rec.sala);
-      });
-      body.appendChild(goBtn);
-    }
-  
     drawerEl.classList.add('open');
     backdropEl.classList.add('open');
   }
@@ -937,29 +927,74 @@
   /* ============================================================
      GLOBAL SEARCH (header + hero)
      ============================================================ */
+  /* Identifica POR QUE o registro deu match (professor, sala, sigla/código ou
+     disciplina) para poder destacar o campo certo e mostrar o contexto mais
+     relevante para cada tipo de busca — em vez de um resumo genérico igual
+     para tudo. */
   function searchRecords(q){
     q = q.toLowerCase().trim();
     if (!q) return [];
     var out = [];
     RECORDS.forEach(function(rec){
-      var hay = [rec.professor, rec.sala, rec.curr2023&&rec.curr2023.sigla, rec.curr2023&&rec.curr2023.nome, rec.curr2008&&rec.curr2008.sigla, rec.curr2008&&rec.curr2008.nome].filter(Boolean).join(' ').toLowerCase();
-      if (hay.indexOf(q) !== -1) out.push(rec);
+      var prof = (rec.professor||'').toLowerCase();
+      var sala = (rec.sala||'').toLowerCase();
+      var c23 = rec.curr2023||{}, c08 = rec.curr2008||{};
+      var sigla = [c23.sigla, c08.sigla].filter(Boolean).join(' ').toLowerCase();
+      var codigo = [c23.codigo, c08.codigo].filter(Boolean).join(' ').toLowerCase();
+      var nome = [c23.nome, c08.nome].filter(Boolean).join(' ').toLowerCase();
+      var type = null;
+      if (prof.indexOf(q) !== -1) type = 'professor';
+      else if (sala.indexOf(q) !== -1) type = 'sala';
+      else if (sigla.indexOf(q) !== -1 || codigo.indexOf(q) !== -1) type = 'sigla';
+      else if (nome.indexOf(q) !== -1) type = 'disciplina';
+      if (type) out.push({ rec:rec, type:type });
     });
     return out.slice(0,8);
   }
   function wireHeroSearch(){
     var input = document.getElementById('heroSearch');
     var results = document.getElementById('heroSearchResults');
+    function horariosTxt(rec){
+      return rec.sessions.length ? rec.sessions.map(function(s){ return s.day_short+' '+H.fmtHour(s.hour); }).join(', ') : 'sem horário fixo';
+    }
+    /* monta a linha secundária com o campo que casou com a busca em destaque,
+       seguido do que mais ajuda a identificar o registro para aquele tipo de busca */
+    function buildMeta(m){
+      var rec = m.rec, c23 = rec.curr2023, c08 = rec.curr2008;
+      var sigla = (c23 && c23.sigla) || (c08 && c08.sigla) || '—';
+      var segs;
+      if (m.type === 'professor') segs = [{t: rec.professor || '—', hl:true}, {t: horariosTxt(rec)}, {t: rec.sala || 'sem sala'}];
+      else if (m.type === 'sala') segs = [{t: 'Sala ' + (rec.sala || '—'), hl:true}, {t: rec.professor || 'professor não informado'}, {t: horariosTxt(rec)}];
+      else if (m.type === 'sigla') segs = [{t: sigla, hl:true}, {t: rec.professor || 'professor não informado'}, {t: horariosTxt(rec)}];
+      else segs = [{t: rec.professor || 'professor não informado'}, {t: horariosTxt(rec)}, {t: rec.sala || 'sem sala'}];
+      segs.push({t: COURSE.sigla});
+      var nodes = [];
+      segs.forEach(function(s, i){
+        if (i) nodes.push(' · ');
+        nodes.push(s.hl ? el('b', {}, [s.t]) : s.t);
+      });
+      return nodes;
+    }
     input.addEventListener('input', function(){
       var matches = searchRecords(input.value);
       results.innerHTML = '';
-      if (!matches.length){ results.classList.remove('open'); return; }
-      matches.forEach(function(rec){
-        var lbl = H.subjectLabel(rec, state.grade);
+      if (!matches.length){
+        if (input.value.trim().length >= 2) {
+          results.appendChild(el('div', {class:'hsr-empty'}, ['Nenhum resultado para "' + input.value.trim() + '" neste curso.']));
+          results.classList.add('open');
+        } else {
+          results.classList.remove('open');
+        }
+        return;
+      }
+      matches.forEach(function(m){
+        var rec = m.rec, lbl = H.subjectLabel(rec, state.grade);
         var item = el('div', {class:'hsr-item'}, [
           el('span', {class:'sigla-chip g'+lbl.grade}, [el('span',{class:'grade-dot g'+lbl.grade}), lbl.sigla]),
-          el('span', {class:'nm'}, [lbl.nome]),
-          el('span', {class:'meta'}, [rec.sala||'sem sala'])
+          el('div', {class:'hsr-info'}, [
+            el('span', {class:'nm'}, [lbl.nome]),
+            el('span', {class:'meta'}, buildMeta(m))
+          ])
         ]);
         item.addEventListener('click', function(){ results.classList.remove('open'); input.value=''; openDrawer(rec, 'busca'); });
         results.appendChild(item);
@@ -967,15 +1002,6 @@
       results.classList.add('open');
     });
     document.addEventListener('click', function(e){ if (!results.contains(e.target) && e.target!==input) results.classList.remove('open'); });
-  
-    var headerInput = document.getElementById('headerSearch');
-    headerInput.addEventListener('input', function(){
-      if (headerInput.value.length < 2) return;
-      switchTab('disciplinas');
-      state.filters.disc.q = headerInput.value;
-      document.querySelector('#filterBarDisc input[type="text"]') && (document.querySelector('#filterBarDisc input[type="text"]').value = headerInput.value);
-      renderDiscTable();
-    });
   }
   
   /* ============================================================
@@ -1085,20 +1111,23 @@
      COURSE EYEBROW + SCOPE BANNER
      ============================================================ */
   function renderCourseIdentity(){
+    /* "Painel de Salas UNIRIO" (wordmark + <title> estático) é a identidade fixa
+       do sistema — não varia por curso. Só o título da região azul (hero) e o
+       rótulo acima dele mudam, de acordo com o curso/unidade selecionado. */
     var THEME_MAP = { eng:'eng', mat:'mat' };
     var theme = THEME_MAP[CURSO] || (CURSO.indexOf('ibio') === 0 ? 'ibio' : '');
     if (theme) document.body.setAttribute('data-theme', theme);
     else document.body.removeAttribute('data-theme');
-    var painel = COURSE.painel || 'CCET';
-    document.title = 'Painel ' + painel + ' · ' + (COURSE.nome || '');
+    var painel = COURSE.painel || COURSE.unidade || 'CCET';
+    document.title = 'Painel de Salas UNIRIO · ' + (COURSE.nome || '');
     var h1 = document.querySelector('.hero h1');
     if (h1){ h1.innerHTML = ''; h1.appendChild(document.createTextNode('Painel ' + painel + ' ')); h1.appendChild(el('em', {}, [COURSE.nome || ''])); }
-    var wm = document.querySelector('.wordmark');
-    if (wm){ wm.innerHTML = 'Painel CCET <span class="dot">X</span> IBIO'; wm.appendChild(el('small', {}, [COURSE.sigla || ''])); }
     var gt = document.querySelector('.grade-toggle'); if (gt) gt.style.display = (CURSO === 'bsi') ? '' : 'none';
+    /* o rótulo acima do título (eyebrow) carrega sigla + período — nunca repete
+       o nome do curso, que já aparece, uma única vez, no título abaixo */
     var eyebrow = document.getElementById('courseEyebrow');
-    if (eyebrow) eyebrow.textContent = (COURSE.nome || 'Sistemas de Informação').toUpperCase() + ' · 2026/2';
-  
+    if (eyebrow) eyebrow.textContent = painel + ' · ' + (COURSE.sigla || '') + ' · 2026/2';
+
     var banner = document.getElementById('scopeBanner');
     if (!banner) return;
     if (COURSE.status === 'escopo'){
