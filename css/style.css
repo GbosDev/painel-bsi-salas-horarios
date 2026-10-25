@@ -415,9 +415,11 @@
      pareça colado na linha do cabeçalho/hero. */
   #view-predio > .section-head,
   #view-grade > .section-head,
-  #view-disciplinas > .section-head,
-  #view-plano > .section-head{
+  #view-disciplinas > .section-head{
     margin-top: 14px;
+  }
+  #view-plano > .section-head{
+    margin-top: 24px;
   }
   
   /* ---- KPI row ---- */
@@ -879,6 +881,47 @@
   .pl-bar button:disabled{ opacity:.5; cursor:default; }
   .csv-summary .n.danger{ color:var(--rose); }
 
+  /* ---- contadores do plano ---- */
+  .plan-stats{
+    display:grid; grid-template-columns:repeat(2, minmax(0, 280px));
+    gap:14px; margin:2px 0 22px;
+  }
+  .plan-stat{
+    position:relative; overflow:hidden;
+    background:var(--white); border:1px solid var(--line); border-radius:12px;
+    padding:16px 18px 14px 20px; box-shadow:var(--shadow-soft);
+  }
+  .plan-stat::before{
+    content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--ink-soft);
+  }
+  .plan-stat.is-ok::before{ background:var(--teal); }
+  .plan-stat.is-alert::before{ background:var(--rose); }
+  .plan-stat-kicker{
+    font-size:10.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--slate);
+  }
+  .plan-stat-n{
+    font-family:var(--font-display); font-size:36px; font-weight:600; line-height:1.05; margin-top:4px; color:var(--ink);
+  }
+  .plan-stat.is-ok .plan-stat-n{ color:var(--teal-deep); }
+  .plan-stat.is-alert .plan-stat-n{ color:var(--rose); }
+  .plan-stat-lbl{ font-size:13.5px; font-weight:700; margin-top:2px; }
+  .plan-stat-hint{ font-size:12px; color:var(--slate); margin-top:4px; }
+  @media (max-width:640px){ .plan-stats{ grid-template-columns:1fr; } }
+
+  /* ---- modal de choque de horário ---- */
+  .plan-modal{
+    background:var(--paper); border-radius:14px; padding:26px; width:min(480px, 92vw);
+    display:grid; gap:12px; box-shadow:0 30px 60px -25px rgba(0,0,0,.45); animation:view-in .35s var(--ease);
+  }
+  .plan-modal h3{ font-size:24px; }
+  .plan-modal p{ margin:0; color:var(--slate); font-size:13.5px; line-height:1.55; }
+  .plan-modal-list{ display:flex; flex-direction:column; gap:8px; max-height:240px; overflow:auto; }
+  .plan-modal-item{
+    background:var(--rose-soft); border-radius:8px; padding:10px 12px; display:grid; gap:3px;
+  }
+  .plan-modal-item b{ color:var(--rose); font-size:12.5px; }
+  .plan-modal-item span{ font-size:12.5px; color:var(--ink); line-height:1.4; }
+
   /* ---- erro de conflito de horário (plano do estudante) ---- */
   .plan-error{ background:var(--rose-soft); border-left:3px solid var(--rose); border-radius:8px; padding:14px 16px; margin:4px 0 18px; }
   .plan-error-title{ font-weight:700; font-size:13.5px; color:var(--rose); margin-bottom:4px; }
@@ -888,17 +931,50 @@
   .plan-error-item b{ color:var(--rose); margin-right:3px; }
 
   /* ---- Minha Semana ---- */
-  .pl-agenda{ margin-top:32px; }
-  .pl-daypills{ display:flex; gap:6px; margin-bottom:18px; flex-wrap:wrap; }
-  .pl-pill{ display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:14px; background:var(--paper-2); color:var(--slate); font-size:11.5px; font-weight:700; text-decoration:none; border:1px solid var(--line); transition:background .15s,color .15s,border-color .15s; }
-  .pl-pill.has{ background:var(--teal-soft); color:var(--teal-deep); border-color:var(--teal); }
-  .pl-pill .ct{ background:rgba(0,0,0,.08); border-radius:8px; padding:0 5px; font-size:10px; }
-  .pl-day{ margin:18px 0; animation:view-in .4s var(--ease); }
-  .pl-day h4{ font-size:14px; margin-bottom:8px; }
-  .pl-day-empty{ font-size:12px; color:var(--slate); padding:9px 14px; background:var(--paper-2); border-radius:var(--radius-md); }
-  .pl-row{ display:flex; gap:14px; padding:10px 14px; background:var(--white); border:1px solid var(--line); border-left:3px solid var(--line); border-radius:var(--radius-md); margin-bottom:6px; }
-  .pl-row b{ min-width:48px; color:var(--teal-deep); } .pl-row small{ display:block; color:var(--slate); font-size:11.5px; margin-top:2px; }
-  .pl-row strong{ font-size:13px; }
+  .pl-agenda{ margin-top:36px; }
+  .pl-week-intro{ margin-bottom:14px; max-width:640px; }
+  .pl-week-intro h3{ font-size:22px; }
+  .pl-week-intro p{ margin:6px 0 0; font-size:13.5px; color:var(--slate); line-height:1.5; }
+  .pl-week-placeholder{
+    background:var(--white); border:1px dashed var(--line); border-radius:12px;
+    padding:28px 18px; text-align:center; color:var(--slate); font-size:13.5px;
+  }
+  .pl-week{
+    display:grid; grid-template-columns:repeat(6, minmax(168px, 1fr));
+    gap:12px; overflow-x:auto; padding-bottom:6px;
+  }
+  .pl-week-col{
+    background:var(--white); border:1px solid var(--line); border-radius:12px;
+    min-height:210px; display:flex; flex-direction:column; overflow:hidden;
+  }
+  .pl-week-col.is-free{ background:var(--paper-2); }
+  .pl-week-dayhead{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:11px 12px; background:var(--ink); color:var(--paper);
+  }
+  .pl-week-col.is-free .pl-week-dayhead{
+    background:transparent; color:var(--ink); border-bottom:1px solid var(--line);
+  }
+  .pl-week-dayname{ font-family:var(--font-display); font-size:16px; font-weight:600; line-height:1.2; }
+  .pl-week-badge{
+    font-size:10px; font-weight:800; letter-spacing:.03em; text-transform:uppercase;
+    background:rgba(255,255,255,.16); border-radius:99px; padding:3px 8px; white-space:nowrap;
+  }
+  .pl-week-col.is-free .pl-week-badge{
+    background:var(--white); color:var(--slate); border:1px solid var(--line);
+  }
+  .pl-week-body{ display:flex; flex-direction:column; gap:10px; padding:12px; flex:1; }
+  .pl-week-card{
+    background:var(--paper); border:1px solid var(--line); border-left:4px solid var(--teal);
+    border-radius:8px; padding:10px 10px 10px 12px; display:grid; gap:2px;
+  }
+  .pl-week-time{ font-size:11px; font-weight:800; letter-spacing:.02em; color:var(--teal-deep); }
+  .pl-week-sigla{ font-size:13.5px; font-weight:800; line-height:1.3; }
+  .pl-week-name{ font-size:12px; line-height:1.35; color:var(--ink-soft); }
+  .pl-week-meta{ font-size:11px; color:var(--slate); margin-top:4px; line-height:1.35; }
+  .pl-week-empty{
+    margin:auto; text-align:center; color:var(--slate); font-size:12px; font-style:italic; padding:16px 6px;
+  }
   @media(max-width:900px){ .pl-layout{ grid-template-columns:1fr; } }
   /* ===== administração ===== */
   .ad-form{ display:none; background:var(--white); border:1px solid var(--line); border-radius:var(--radius-md); padding:18px; margin-bottom:18px; }
