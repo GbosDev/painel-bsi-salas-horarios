@@ -9,12 +9,107 @@
   function nm(r){ return r.curr2023||r.curr2008||{}; }
   function byId(id){ return RECS.filter(function(r){return r.id===id;})[0]; }
   function chosen(list){ return list.map(byId).filter(Boolean); }
-  function busy(room,d,h){ return RECS.some(function(r){ return r.sala===room && r.sessions.some(function(s){return s.day_num===d&&s.hour===h;}); }); }
-  function conflicts(list){ var m={},c={}; chosen(list).forEach(function(r){ r.sessions.forEach(function(s){ var k=s.day_num+'-'+s.hour; if(m[k]&&m[k]!==r.id){ c[k]=1; } m[k]=r.id; }); }); return c; }
+
+  /* ============================================================
+     VALIDAÇÃO DE CONFLITOS DE HORÁRIO
+     Roda no navegador: o plano persistido fica em localStorage.
+     findConflicts é consultado ANTES de alterar a seleção (sel) e
+     ANTES de gravar (localStorage / saved). Conflito nunca entra
+     no estado nem no armazenamento.
+     ============================================================ */
+  function findConflicts(list){
+    var bySlot = {};
+    chosen(list).forEach(function(r){
+      var seen = {};
+      r.sessions.forEach(function(s){
+        var k = s.day_num+'-'+s.hour;
+        if (seen[k]) return;
+        seen[k] = 1;
+        (bySlot[k] = bySlot[k] || []).push(r);
+      });
+    });
+    var out = [];
+    Object.keys(bySlot).forEach(function(k){
+      var recs = bySlot[k];
+      if (recs.length > 1){
+        var parts = k.split('-');
+        out.push({ day:Number(parts[0]), hour:Number(parts[1]), recs:recs });
+      }
+    });
+    return out;
+  }
+  function showConflictModal(conflictList, lead){
+    var prev = document.getElementById('planConflictModal');
+    if (prev) prev.remove();
+    var list = el('div', {class:'plan-modal-list'});
+    conflictList.forEach(function(c){
+      var names = c.recs.map(function(r){ var n=nm(r); return (n.sigla||'—')+' — '+(n.nome||''); }).join('  ×  ');
+      list.appendChild(el('div', {class:'plan-modal-item'}, [
+        el('b', {}, [H.DAY_FULL[c.day]+' · '+H.fmtHour(c.hour)+'–'+H.fmtHour(c.hour+2)]),
+        el('span', {}, [names])
+      ]));
+    });
+    var ov, onKey;
+    function close(){
+      document.removeEventListener('keydown', onKey);
+      if (ov && ov.parentNode) ov.remove();
+    }
+    onKey = function(e){ if (e.key === 'Escape') close(); };
+    var btn = el('button', {type:'button', class:'edit-save-btn'}, ['Ajustar horários']);
+    btn.addEventListener('click', close);
+    var card = el('div', {class:'plan-modal', role:'alertdialog', 'aria-modal':'true', 'aria-labelledby':'planConflictTitle'}, [
+      el('h3', {id:'planConflictTitle'}, ['Choque de horários']),
+      el('p', {}, [lead]),
+      list,
+      btn
+    ]);
+    ov = el('div', {id:'planConflictModal', class:'cp-overlay'}, [card]);
+    ov.addEventListener('click', function(e){ if (e.target === ov) close(); });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(ov);
+    btn.focus();
+  }
+  function conflictCellKeys(conflictList){
+    var m={}; conflictList.forEach(function(c){ m[c.day+'-'+c.hour]=1; }); return m;
+  }
+  function buildErrorBanner(conflictList){
+    var box = el('div', {class:'plan-error', role:'alert'});
+    box.appendChild(el('div', {class:'plan-error-title'}, ['Não foi possível salvar seu plano porque existem conflitos de horários entre as turmas selecionadas.']));
+    box.appendChild(el('div', {class:'plan-error-sub'}, ['Revise os dias e horários das disciplinas indicadas e ajuste as informações antes de tentar novamente.']));
+    var list = el('div', {class:'plan-error-list'});
+    conflictList.forEach(function(c){
+      var names = c.recs.map(function(r){ var n=nm(r); return (n.sigla||'—')+' — '+(n.nome||''); }).join('  ×  ');
+      list.appendChild(el('div', {class:'plan-error-item'}, [el('b',{},[H.DAY_FULL[c.day]+' · '+H.fmtHour(c.hour)]), ': '+names]));
+    });
+    box.appendChild(list);
+    return box;
+  }
+
   function draw(){
-    var cf=conflicts(sel), dirty=JSON.stringify(sel)!==JSON.stringify(saved);
+    var conflictList = findConflicts(sel), cf = conflictCellKeys(conflictList);
+    var dirty=JSON.stringify(sel)!==JSON.stringify(saved);
     root.innerHTML='';
-    root.appendChild(el('div',{class:'section-head'},[el('div',{},[el('h2',{},['Meu plano de aulas']),el('div',{class:'desc'},['Escolha as turmas em que você está inscrito. O painel monta a semana, mostra as salas e avisa sobre choques de horário.'])])]));
+    root.appendChild(el('div',{class:'section-head'},[el('div',{},[el('h2',{},['Meu plano de aulas']),el('div',{class:'desc'},['Escolha as turmas em que você está inscrito. O painel monta a semana e não deixa salvar quando há choque de horário.'])])]));
+
+    var turmaCount = chosen(sel).length;
+    var clashCount = conflictList.length;
+    var stats = el('div', {class:'plan-stats'});
+    stats.appendChild(el('article', {class:'plan-stat'}, [
+      el('div', {class:'plan-stat-kicker'}, ['Quantidade de turmas']),
+      el('div', {class:'plan-stat-n'}, [String(turmaCount)]),
+      el('div', {class:'plan-stat-lbl'}, [turmaCount === 1 ? 'turma no plano' : 'turmas no plano']),
+      el('div', {class:'plan-stat-hint'}, ['Disciplinas marcadas nesta seleção'])
+    ]));
+    stats.appendChild(el('article', {class:'plan-stat '+(clashCount ? 'is-alert' : 'is-ok')}, [
+      el('div', {class:'plan-stat-kicker'}, ['Quantidade de choques']),
+      el('div', {class:'plan-stat-n'}, [String(clashCount)]),
+      el('div', {class:'plan-stat-lbl'}, [clashCount === 1 ? 'choque entre turmas' : 'choques entre turmas']),
+      el('div', {class:'plan-stat-hint'}, [clashCount ? 'Reajuste os horários antes de salvar' : 'Nenhum horário sobreposto'])
+    ]));
+    root.appendChild(stats);
+
+    if (conflictList.length) root.appendChild(buildErrorBanner(conflictList));
+
     var cat=el('div',{class:'pl-cat'}), search=el('input',{type:'text',placeholder:'Filtrar por sigla, disciplina ou professor',value:q});
     search.addEventListener('input',function(){ q=search.value; list(); });
     var ul=el('div',{class:'pl-list'});
@@ -22,7 +117,19 @@
       RECS.filter(function(r){ var n=nm(r); return !t||(n.sigla+' '+n.nome+' '+(r.professor||'')).toLowerCase().indexOf(t)>=0; }).forEach(function(r){
         var n=nm(r), on=sel.indexOf(r.id)>=0;
         var b=el('button',{type:'button',class:'pl-item'+(on?' on':'')},[el('b',{},[n.sigla||'—']),el('span',{},[n.nome||'']),el('small',{},[(r.professor||'')+' · '+(r.sala||'sem sala')+' · '+r.sessions.map(function(s){return s.day_short+' '+H.fmtHour(s.hour);}).join(', ')])]);
-        b.addEventListener('click',function(){ sel=on?sel.filter(function(i){return i!==r.id;}):sel.concat(r.id); draw(); });
+        b.addEventListener('click',function(){
+          if (on){ sel = sel.filter(function(i){ return i!==r.id; }); draw(); return; }
+          var next = sel.concat(r.id);
+          var clashes = findConflicts(next).filter(function(c){
+            return c.recs.some(function(rec){ return rec.id === r.id; });
+          });
+          if (clashes.length){
+            showConflictModal(clashes, 'Não foi possível adicionar esta turma ao plano porque o horário conflita com outra disciplina já escolhida. Reajuste as informações abaixo e tente novamente.');
+            return;
+          }
+          sel = next;
+          draw();
+        });
         ul.appendChild(b); }); }
     list(); cat.appendChild(search); cat.appendChild(ul);
     var grid=el('div',{class:'pl-grid'}); grid.appendChild(el('div',{}));
@@ -35,25 +142,67 @@
         picks.forEach(function(r,i){ if(r.sessions.some(function(s){return s.day_num===d&&s.hour===h;})){
           var n=nm(r); cell.appendChild(el('div',{class:'pl-block',style:'background:'+COLORS[sel.indexOf(r.id)%COLORS.length]},[el('b',{},[n.sigla]),el('span',{},[r.sala||'sem sala'])])); } });
         grid.appendChild(cell); }); });
-    var bar=el('div',{class:'pl-bar'},[el('span',{},[picks.length+' turma(s) · '+Object.keys(cf).length+' choque(s)'])]);
-    var sv=el('button',{type:'button',class:'edit-save-btn'},[dirty?'Salvar plano':'Plano salvo']); sv.disabled=!dirty;
-    sv.addEventListener('click',function(){ localStorage.setItem(KEY,JSON.stringify(sel)); saved=sel.slice(); draw(); });
+    var bar=el('div',{class:'pl-bar'});
+    var canAttempt = dirty || conflictList.length>0;
+    var sv=el('button',{type:'button',class:'edit-save-btn'},[canAttempt?'Salvar plano':'Plano salvo']);
+    sv.disabled = !canAttempt;
+    sv.addEventListener('click',function(){
+      var clashes = findConflicts(sel);
+      if (clashes.length){
+        showConflictModal(clashes, 'Não foi possível salvar o plano porque existem choques de horário entre as turmas. Reajuste as disciplinas indicadas e tente novamente.');
+        return;
+      }
+      localStorage.setItem(KEY,JSON.stringify(sel));
+      saved = sel.slice();
+      draw();
+    });
     bar.appendChild(sv);
     var left=el('div',{class:'pl-main'},[bar,el('div',{class:'pl-gridwrap'},[grid])]);
     root.appendChild(el('div',{class:'pl-layout'},[cat,left]));
-    var ag=el('div',{class:'pl-agenda'}); var sp=chosen(saved);
-    ag.appendChild(el('h3',{},['Minha semana']));
-    if(!sp.length) ag.appendChild(el('div',{class:'rd-empty'},['Salve um plano para ver sua agenda organizada por dia, com sala e ocupação.']));
-    H.DAY_ORDER.forEach(function(d){
-      var items=[]; sp.forEach(function(r){ r.sessions.forEach(function(s){ if(s.day_num===d) items.push({r:r,h:s.hour}); }); });
-      if(!items.length) return; items.sort(function(a,b){return a.h-b.h;});
-      var col=el('div',{class:'pl-day'},[el('h4',{},[H.DAY_FULL[d]])]);
-      items.forEach(function(it){ var n=nm(it.r), tot=H.ALL_ROOMS.length, free=H.ALL_ROOMS.filter(function(x){return !busy(x,d,it.h);}).length;
-        col.appendChild(el('div',{class:'pl-row'},[el('b',{},[H.fmtHour(it.h)]),el('div',{},[el('strong',{},[n.sigla+' — '+n.nome]),el('small',{},[(it.r.sala||'sem sala')+' · '+(it.r.professor||'')+' · '+free+' de '+tot+' salas livres neste horário'])])])); });
-      ag.appendChild(col); });
+
+    /* Minha semana — grade visual do plano já salvo, um dia por coluna. */
+    var ag=el('div',{class:'pl-agenda'});
+    ag.appendChild(el('div',{class:'pl-week-intro'},[
+      el('h3',{},['Minha semana']),
+      el('p',{},['Consulta rápida do plano salvo: cada coluna é um dia e cada card é uma aula, com horário, professor(a) e sala.'])
+    ]));
+    var sp=chosen(saved);
+    if(!sp.length){
+      ag.appendChild(el('div',{class:'pl-week-placeholder'},['Salve um plano para ver a semana organizada, com disciplina, professor(a) e sala de cada aula.']));
+    } else {
+      var byDay = {};
+      H.DAY_ORDER.forEach(function(d){ byDay[d] = []; });
+      sp.forEach(function(r){ r.sessions.forEach(function(s){ if (byDay[s.day_num]) byDay[s.day_num].push({r:r,h:s.hour}); }); });
+
+      var week = el('div',{class:'pl-week'});
+      H.DAY_ORDER.forEach(function(d){
+        var items=byDay[d].slice().sort(function(a,b){return a.h-b.h;});
+        var col=el('section',{class:'pl-week-col'+(items.length?'':' is-free'), 'aria-label':H.DAY_FULL[d]});
+        col.appendChild(el('div',{class:'pl-week-dayhead'},[
+          el('span',{class:'pl-week-dayname'},[H.DAY_FULL[d].replace('-feira','')]),
+          el('span',{class:'pl-week-badge'},[items.length? String(items.length)+(items.length===1?' aula':' aulas') : 'livre'])
+        ]));
+        var body=el('div',{class:'pl-week-body'});
+        if(!items.length){
+          body.appendChild(el('div',{class:'pl-week-empty'},['Nenhuma aula neste dia.']));
+        } else {
+          items.forEach(function(it){
+            var n=nm(it.r), idx=sel.indexOf(it.r.id), color=COLORS[(idx>=0?idx:0)%COLORS.length];
+            body.appendChild(el('article',{class:'pl-week-card', style:'border-left-color:'+color},[
+              el('div',{class:'pl-week-time'},[H.fmtHour(it.h)+' – '+H.fmtHour(it.h+2)]),
+              el('div',{class:'pl-week-sigla'},[n.sigla||'—']),
+              el('div',{class:'pl-week-name'},[n.nome||'']),
+              el('div',{class:'pl-week-meta'},[(it.r.professor||'professor não informado')+' · '+(it.r.sala||'sem sala')])
+            ]));
+          });
+        }
+        col.appendChild(body);
+        week.appendChild(col);
+      });
+      ag.appendChild(week);
+    }
     root.appendChild(ag);
   }
   document.querySelector('[data-tab="plano"]').addEventListener('click',draw);
   draw();
   })();
-  

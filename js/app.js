@@ -32,10 +32,37 @@
       if (!patch) return;
       if (patch.professor) rec.professor = patch.professor;
       if (patch.sala !== undefined) rec.sala = patch.sala;
+      if (patch.vagas !== undefined) rec.vagas = patch.vagas;
+      if (patch.section) rec.section = patch.section;
       if (patch.sessions) rec.sessions = patch.sessions;
+      if (patch.curr2008) rec.curr2008 = patch.curr2008;
+      if (patch.curr2023) rec.curr2023 = patch.curr2023;
       rec._overridden = true;
     });
   })();
+
+  /* ============================================================
+     AUDITORIA — histórico de alterações (global, cruza todos os cursos,
+     porque um coordenador acompanha o painel como um todo).
+     ============================================================ */
+  var AUDIT_KEY = 'bussola_audit';
+  var AUDIT_MAX = 500;
+  function loadAudit(){
+    try{ return JSON.parse(localStorage.getItem(AUDIT_KEY)) || []; }catch(e){ return []; }
+  }
+  /* entry: { curso, cursoNome, tipo, turmaSigla, turmaNome, motivo, antes, depois } —
+     id/ts/autor/autorRole são preenchidos aqui para nunca ficarem inconsistentes. */
+  function logAudit(entry){
+    var all = loadAudit();
+    all.unshift(Object.assign({
+      id: Date.now() + '-' + Math.floor(Math.random()*1000),
+      ts: Date.now(),
+      autor: (SESSION && SESSION.nome) || 'desconhecido',
+      autorRole: (SESSION && SESSION.role) || '—'
+    }, entry));
+    if (all.length > AUDIT_MAX) all.length = AUDIT_MAX;
+    localStorage.setItem(AUDIT_KEY, JSON.stringify(all));
+  }
   
   var DAY_ORDER = [1,2,3,4,5,6]; // Mon..Sat
   var DAY_SHORT = {1:'SEG',2:'TER',3:'QUA',4:'QUI',5:'SEX',6:'SÁB'};
@@ -191,7 +218,7 @@
   window.__b_helpers = { el:el, fmtHour:fmtHour, profShort:profShort, nowInfo:nowInfo, sessionStatus:sessionStatus,
     roomStatusToday:roomStatusToday, subjectLabel:subjectLabel, flattenSubjects:flattenSubjects,
     roomBuildingFloor:roomBuildingFloor, ALL_ROOMS:ALL_ROOMS, DAY_ORDER:DAY_ORDER, DAY_SHORT:DAY_SHORT, DAY_FULL:DAY_FULL, HOURS:HOURS,
-    saveOverride:saveOverride };
+    saveOverride:saveOverride, logAudit:logAudit, getAudit:loadAudit };
   
   })();
   (function(){
@@ -329,7 +356,7 @@
     // data: [{label, value, color}]
     opts = opts || {};
     var w = opts.width || 480, h = opts.height || 220;
-    var padL = 30, padB = 30, padT = 14, padR = 10;
+    var padL = 30, padB = opts.rotateLabels ? 54 : 30, padT = 14, padR = 10;
     var innerW = w - padL - padR, innerH = h - padT - padB;
     var maxV = Math.max.apply(null, data.map(function(d){ return d.value; })) || 1;
     var svg = svgEl('svg', {viewBox:'0 0 '+w+' '+h, class:'bar-chart', role:'img', 'aria-label': opts.ariaLabel || 'gráfico de barras'});
@@ -355,14 +382,19 @@
         vlab.textContent = d.value;
         svg.appendChild(vlab);
       }
-      var xlab = svgEl('text', {x:x+barW/2, y:h-10, class:'axis-label', 'text-anchor':'middle'});
+      var xlab;
+      if (opts.rotateLabels){
+        xlab = svgEl('text', {x:x+barW/2, y:h-padB+16, class:'axis-label', 'text-anchor':'end', transform:'rotate(-40 '+(x+barW/2)+' '+(h-padB+16)+')'});
+      } else {
+        xlab = svgEl('text', {x:x+barW/2, y:h-10, class:'axis-label', 'text-anchor':'middle'});
+      }
       xlab.textContent = d.label;
       svg.appendChild(xlab);
     });
     container.innerHTML = '';
     container.appendChild(svg);
   }
-  
+
   function stackedBarChart(container, groups, seriesKeys, colors, opts){
     // groups: [{label, values:{key:val}}]
     opts = opts || {};
@@ -418,7 +450,7 @@
     H.ALL_ROOMS.forEach(function(r){ roomCount[r]=0; });
     RECORDS.forEach(function(r){ if (r.sala && roomCount[r.sala]!==undefined) roomCount[r.sala]+= r.sessions.length; });
     var roomData = Object.keys(roomCount).sort(function(a,b){ return roomCount[b]-roomCount[a]; }).map(function(r){ return {label:r.replace('Sala ','S.').replace('Lab. ','L.'), value:roomCount[r], color:'#B97A22'}; });
-    barChart(document.getElementById('chartSalas'), roomData, {width:440, height:210, ariaLabel:'Ocupação por sala'});
+    barChart(document.getElementById('chartSalas'), roomData, {width:440, height:230, ariaLabel:'Ocupação por sala', rotateLabels:true});
   
     // disciplinas por periodo (stacked 2023 teal / 2008 plum)
     var periods = ['1','2','3','4','5','6','7','8','9','10','A','O'];
@@ -465,8 +497,9 @@
       var hour = H.HOURS.indexOf(info.hour) !== -1
         ? info.hour
         : H.HOURS.reduce(function(best,h){ return (h <= info.hour) ? h : best; }, H.HOURS[0]);
-      state.predio = { day: day, hour: hour };
+      state.predio = { day: day, hour: hour, status: 'todas' };
     }
+    if (state.predio.status === undefined) state.predio.status = 'todas';
     return state.predio;
   }
   
@@ -494,9 +527,18 @@
     });
     hourSelect.addEventListener('change', function(){ sel.hour = parseInt(hourSelect.value, 10); renderRoomsGrid(); });
   
+    var statusSelect = el('select', {});
+    [['todas','Todas as salas'],['livres','Só livres'],['ocupadas','Só ocupadas']].forEach(function(o){
+      var opt = el('option', {value:o[0]}, [o[1]]);
+      if (o[0] === sel.status) opt.selected = true;
+      statusSelect.appendChild(opt);
+    });
+    statusSelect.addEventListener('change', function(){ sel.status = statusSelect.value; renderRoomsGrid(); });
+
     wrap.appendChild(field('Dia', daySelect));
     wrap.appendChild(field('Horário', hourSelect));
-  
+    wrap.appendChild(field('Status', statusSelect));
+
     var nowBtn = el('button', {class:'filter-reset'}, ['Ver agora']);
     nowBtn.addEventListener('click', function(){
       var info = H.nowInfo();
@@ -530,6 +572,8 @@
   
     H.ALL_ROOMS.forEach(function(room){
       var rec = roomOccupancyAt(room, sel.day, sel.hour);
+      if (sel.status === 'livres' && rec) return;
+      if (sel.status === 'ocupadas' && !rec) return;
       var card = el('div', {class:'room-card '+(rec ? 'occupied' : 'free'), 'data-room': room});
   
       card.appendChild(el('div', {class:'room-header'}, [
@@ -606,7 +650,7 @@
   /* origem: 'grade' | 'disciplinas' | 'busca' | 'salas'
      A ementa só aparece quando o drawer é aberto pela grade horária ou
      pelo índice de disciplinas — não na busca nem na aba de ocupação. */
-  function openDrawer(rec, origem, editing){
+  function openDrawer(rec, origem){
     var mostrarEmenta = (origem === 'grade' || origem === 'disciplinas');
     var lbl = H.subjectLabel(rec, state.grade);
     document.getElementById('drawerSigla').innerHTML = '';
@@ -629,22 +673,7 @@
         : el('div', {class:'dc-box empty'}, ['Sem equivalente na grade 2008'])
     );
     body.appendChild(corr);
-  
-    if (IS_PROFESSOR){
-      var toggleRow = el('div', {class:'edit-toggle-row'});
-      var toggleBtn = el('button', {class:'edit-toggle-btn', type:'button'}, [editing ? '✕ Cancelar edição' : '✎ Editar horário / sala / professor']);
-      toggleBtn.addEventListener('click', function(){ openDrawer(rec, origem, !editing); });
-      toggleRow.appendChild(toggleBtn);
-      body.appendChild(toggleRow);
-    }
-  
-    if (editing){
-      renderEditForm(body, rec, origem);
-      drawerEl.classList.add('open');
-      backdropEl.classList.add('open');
-      return;
-    }
-  
+
     body.appendChild(el('h5', {}, ['DETALHES DA TURMA']));
     function row(k,v){ return el('div', {class:'db-row'}, [el('span',{class:'k'},[k]), el('span',{class:'v'},[v||'—'])]); }
     body.appendChild(row('Professor(a)', rec.professor));
@@ -682,93 +711,10 @@
       }
     }
   
-    if (rec.sala){
-      var goBtn = el('button', {class:'filter-reset', style:'margin-top:16px; width:100%;'}, ['Ver esta sala na ocupação →']);
-      goBtn.addEventListener('click', function(){
-        closeDrawer();
-        switchTab('predio');
-        UI.highlightRoom(rec.sala);
-      });
-      body.appendChild(goBtn);
-    }
-  
     drawerEl.classList.add('open');
     backdropEl.classList.add('open');
   }
   
-  /* Formulário de edição (só professor) — horário/sala/professor de uma
-     turma. Salva em memória + localStorage (por curso), sem backend. */
-  function renderEditForm(body, rec, origem){
-    var form = el('div', {class:'edit-form'});
-  
-    var profInput = el('input', {type:'text', value: rec.professor || ''});
-    form.appendChild(el('div', {class:'edit-field'}, [ el('label',{},['Professor(a)']), profInput ]));
-  
-    var salaSelect = el('select', {});
-    salaSelect.appendChild(el('option', {value:''}, ['sem sala fixa']));
-    var rooms = H.ALL_ROOMS.slice();
-    if (rec.sala && rooms.indexOf(rec.sala) === -1) rooms.push(rec.sala);
-    rooms.sort(function(a,b){ return a.localeCompare(b,'pt-BR'); });
-    rooms.forEach(function(r){ var o = el('option', {value:r}, [r]); if (r === rec.sala) o.selected = true; salaSelect.appendChild(o); });
-    form.appendChild(el('div', {class:'edit-field'}, [ el('label',{},['Sala']), salaSelect ]));
-  
-    form.appendChild(el('label', {style:'display:block; font-size:11px; font-weight:700; color:var(--slate); margin:14px 0 6px;'}, ['Horários semanais']));
-    var sessWrap = el('div', {class:'edit-sessions'});
-    var working = rec.sessions.map(function(s){ return { day_num:s.day_num, hour:s.hour }; });
-  
-    function renderRows(){
-      sessWrap.innerHTML = '';
-      if (!working.length){
-        sessWrap.appendChild(el('div', {class:'rd-empty'}, ['Sem horário fixo.']));
-      }
-      working.forEach(function(s, idx){
-        var daySel = el('select', {});
-        H.DAY_ORDER.forEach(function(d){ var o = el('option', {value:String(d)}, [H.DAY_FULL[d]]); if (d === s.day_num) o.selected = true; daySel.appendChild(o); });
-        daySel.addEventListener('change', function(){ working[idx].day_num = parseInt(daySel.value, 10); });
-        var hourSel = el('select', {});
-        H.HOURS.forEach(function(h){ var o = el('option', {value:String(h)}, [H.fmtHour(h)]); if (h === s.hour) o.selected = true; hourSel.appendChild(o); });
-        hourSel.addEventListener('change', function(){ working[idx].hour = parseInt(hourSel.value, 10); });
-        var rmBtn = el('button', {type:'button', title:'Remover este horário'}, ['×']);
-        rmBtn.addEventListener('click', function(){ working.splice(idx, 1); renderRows(); });
-        sessWrap.appendChild(el('div', {class:'edit-session-row'}, [daySel, hourSel, rmBtn]));
-      });
-    }
-    renderRows();
-    form.appendChild(sessWrap);
-  
-    var addBtn = el('button', {type:'button', class:'edit-add-session'}, ['+ adicionar horário']);
-    addBtn.addEventListener('click', function(){ working.push({day_num:1, hour:H.HOURS[0]}); renderRows(); });
-    form.appendChild(addBtn);
-  
-    var actions = el('div', {class:'edit-actions'});
-    var saveBtn = el('button', {type:'button', class:'edit-save-btn'}, ['Salvar alterações']);
-    var cancelBtn = el('button', {type:'button', class:'edit-cancel-btn'}, ['Cancelar']);
-    saveBtn.addEventListener('click', function(){
-      var newProf = profInput.value.trim();
-      var newSala = salaSelect.value || null;
-      var newSessions = working.map(function(s){
-        return { day_num:s.day_num, day_label:H.DAY_FULL[s.day_num], day_short:H.DAY_SHORT[s.day_num], hour:s.hour };
-      });
-      rec.professor = newProf;
-      rec.sala = newSala;
-      rec.sessions = newSessions;
-      rec._overridden = true;
-      H.saveOverride(rec.id, { professor:newProf, sala:newSala, sessions:newSessions });
-      // qualquer view que mostre esta turma precisa refletir a mudança
-      renderSchedule();
-      UI.renderRoomsGrid();
-      renderDiscTable();
-      UI.renderKPIs();
-      UI.renderCharts();
-      openDrawer(rec, origem, false);
-    });
-    cancelBtn.addEventListener('click', function(){ openDrawer(rec, origem, false); });
-    actions.appendChild(saveBtn);
-    actions.appendChild(cancelBtn);
-    form.appendChild(actions);
-  
-    body.appendChild(form);
-  }
   function closeDrawer(){ drawerEl.classList.remove('open'); backdropEl.classList.remove('open'); }
   document.getElementById('drawerClose').addEventListener('click', closeDrawer);
   backdropEl.addEventListener('click', closeDrawer);
@@ -981,29 +927,74 @@
   /* ============================================================
      GLOBAL SEARCH (header + hero)
      ============================================================ */
+  /* Identifica POR QUE o registro deu match (professor, sala, sigla/código ou
+     disciplina) para poder destacar o campo certo e mostrar o contexto mais
+     relevante para cada tipo de busca — em vez de um resumo genérico igual
+     para tudo. */
   function searchRecords(q){
     q = q.toLowerCase().trim();
     if (!q) return [];
     var out = [];
     RECORDS.forEach(function(rec){
-      var hay = [rec.professor, rec.sala, rec.curr2023&&rec.curr2023.sigla, rec.curr2023&&rec.curr2023.nome, rec.curr2008&&rec.curr2008.sigla, rec.curr2008&&rec.curr2008.nome].filter(Boolean).join(' ').toLowerCase();
-      if (hay.indexOf(q) !== -1) out.push(rec);
+      var prof = (rec.professor||'').toLowerCase();
+      var sala = (rec.sala||'').toLowerCase();
+      var c23 = rec.curr2023||{}, c08 = rec.curr2008||{};
+      var sigla = [c23.sigla, c08.sigla].filter(Boolean).join(' ').toLowerCase();
+      var codigo = [c23.codigo, c08.codigo].filter(Boolean).join(' ').toLowerCase();
+      var nome = [c23.nome, c08.nome].filter(Boolean).join(' ').toLowerCase();
+      var type = null;
+      if (prof.indexOf(q) !== -1) type = 'professor';
+      else if (sala.indexOf(q) !== -1) type = 'sala';
+      else if (sigla.indexOf(q) !== -1 || codigo.indexOf(q) !== -1) type = 'sigla';
+      else if (nome.indexOf(q) !== -1) type = 'disciplina';
+      if (type) out.push({ rec:rec, type:type });
     });
     return out.slice(0,8);
   }
   function wireHeroSearch(){
     var input = document.getElementById('heroSearch');
     var results = document.getElementById('heroSearchResults');
+    function horariosTxt(rec){
+      return rec.sessions.length ? rec.sessions.map(function(s){ return s.day_short+' '+H.fmtHour(s.hour); }).join(', ') : 'sem horário fixo';
+    }
+    /* monta a linha secundária com o campo que casou com a busca em destaque,
+       seguido do que mais ajuda a identificar o registro para aquele tipo de busca */
+    function buildMeta(m){
+      var rec = m.rec, c23 = rec.curr2023, c08 = rec.curr2008;
+      var sigla = (c23 && c23.sigla) || (c08 && c08.sigla) || '—';
+      var segs;
+      if (m.type === 'professor') segs = [{t: rec.professor || '—', hl:true}, {t: horariosTxt(rec)}, {t: rec.sala || 'sem sala'}];
+      else if (m.type === 'sala') segs = [{t: 'Sala ' + (rec.sala || '—'), hl:true}, {t: rec.professor || 'professor não informado'}, {t: horariosTxt(rec)}];
+      else if (m.type === 'sigla') segs = [{t: sigla, hl:true}, {t: rec.professor || 'professor não informado'}, {t: horariosTxt(rec)}];
+      else segs = [{t: rec.professor || 'professor não informado'}, {t: horariosTxt(rec)}, {t: rec.sala || 'sem sala'}];
+      segs.push({t: COURSE.sigla});
+      var nodes = [];
+      segs.forEach(function(s, i){
+        if (i) nodes.push(' · ');
+        nodes.push(s.hl ? el('b', {}, [s.t]) : s.t);
+      });
+      return nodes;
+    }
     input.addEventListener('input', function(){
       var matches = searchRecords(input.value);
       results.innerHTML = '';
-      if (!matches.length){ results.classList.remove('open'); return; }
-      matches.forEach(function(rec){
-        var lbl = H.subjectLabel(rec, state.grade);
+      if (!matches.length){
+        if (input.value.trim().length >= 2) {
+          results.appendChild(el('div', {class:'hsr-empty'}, ['Nenhum resultado para "' + input.value.trim() + '" neste curso.']));
+          results.classList.add('open');
+        } else {
+          results.classList.remove('open');
+        }
+        return;
+      }
+      matches.forEach(function(m){
+        var rec = m.rec, lbl = H.subjectLabel(rec, state.grade);
         var item = el('div', {class:'hsr-item'}, [
           el('span', {class:'sigla-chip g'+lbl.grade}, [el('span',{class:'grade-dot g'+lbl.grade}), lbl.sigla]),
-          el('span', {class:'nm'}, [lbl.nome]),
-          el('span', {class:'meta'}, [rec.sala||'sem sala'])
+          el('div', {class:'hsr-info'}, [
+            el('span', {class:'nm'}, [lbl.nome]),
+            el('span', {class:'meta'}, buildMeta(m))
+          ])
         ]);
         item.addEventListener('click', function(){ results.classList.remove('open'); input.value=''; openDrawer(rec, 'busca'); });
         results.appendChild(item);
@@ -1011,28 +1002,20 @@
       results.classList.add('open');
     });
     document.addEventListener('click', function(e){ if (!results.contains(e.target) && e.target!==input) results.classList.remove('open'); });
-  
-    var headerInput = document.getElementById('headerSearch');
-    headerInput.addEventListener('input', function(){
-      if (headerInput.value.length < 2) return;
-      switchTab('disciplinas');
-      state.filters.disc.q = headerInput.value;
-      document.querySelector('#filterBarDisc input[type="text"]') && (document.querySelector('#filterBarDisc input[type="text"]').value = headerInput.value);
-      renderDiscTable();
-    });
   }
   
   /* ============================================================
      TAB SWITCHING
      ============================================================ */
   function switchTab(tab){
-    if ((tab === 'painel' || tab === 'admin') && !IS_PROFESSOR) return;
+    if ((tab === 'painel' || tab === 'historico' || tab === 'csv') && !IS_PROFESSOR) return;
     if (tab === 'plano' && IS_PROFESSOR) return;
     try{ sessionStorage.setItem('bussola_tab', tab); }catch(e){} // aluno não tem acesso ao painel de métricas
     state.tab = tab;
     document.querySelectorAll('.tab-btn').forEach(function(b){ b.setAttribute('aria-selected', String(b.getAttribute('data-tab')===tab)); });
     document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
     document.getElementById('view-'+tab).classList.add('active');
+    document.body.setAttribute('data-tab', tab);
     if (tab === 'predio'){ UI.renderRoomsGrid(); }
   }
   document.querySelectorAll('.tab-btn').forEach(function(b){ b.addEventListener('click', function(){ switchTab(b.getAttribute('data-tab')); }); });
@@ -1041,7 +1024,7 @@
      ROLE GATING — só professor vê/acessa o Painel de métricas
      ============================================================ */
   function applyRoleGating(){
-    ['tabAdminBtn','tabPainelBtn'].forEach(function(id){ var b=document.getElementById(id); if(b && !IS_PROFESSOR) b.style.display='none'; });
+    ['tabHistoricoBtn','tabPainelBtn','tabCsvBtn'].forEach(function(id){ var b=document.getElementById(id); if(b && !IS_PROFESSOR) b.style.display='none'; });
     var tp=document.getElementById('tabPlanoBtn'); if(tp && IS_PROFESSOR) tp.style.display='none';
     var painelBtn = document.getElementById('tabPainelBtn');
     if (!IS_PROFESSOR){
@@ -1128,16 +1111,23 @@
      COURSE EYEBROW + SCOPE BANNER
      ============================================================ */
   function renderCourseIdentity(){
-    var painel = COURSE.painel || 'CCET';
-    document.title = 'Painel ' + painel + ' · ' + (COURSE.nome || '');
+    /* "Painel de Salas UNIRIO" (wordmark + <title> estático) é a identidade fixa
+       do sistema — não varia por curso. Só o título da região azul (hero) e o
+       rótulo acima dele mudam, de acordo com o curso/unidade selecionado. */
+    var THEME_MAP = { eng:'eng', mat:'mat' };
+    var theme = THEME_MAP[CURSO] || (CURSO.indexOf('ibio') === 0 ? 'ibio' : '');
+    if (theme) document.body.setAttribute('data-theme', theme);
+    else document.body.removeAttribute('data-theme');
+    var painel = COURSE.painel || COURSE.unidade || 'CCET';
+    document.title = 'Painel de Salas UNIRIO · ' + (COURSE.nome || '');
     var h1 = document.querySelector('.hero h1');
     if (h1){ h1.innerHTML = ''; h1.appendChild(document.createTextNode('Painel ' + painel + ' ')); h1.appendChild(el('em', {}, [COURSE.nome || ''])); }
-    var wm = document.querySelector('.wordmark');
-    if (wm){ wm.innerHTML = 'Painel CCET <span class="dot">X</span> IBIO'; wm.appendChild(el('small', {}, [COURSE.sigla || ''])); }
     var gt = document.querySelector('.grade-toggle'); if (gt) gt.style.display = (CURSO === 'bsi') ? '' : 'none';
+    /* o rótulo acima do título (eyebrow) carrega sigla + período — nunca repete
+       o nome do curso, que já aparece, uma única vez, no título abaixo */
     var eyebrow = document.getElementById('courseEyebrow');
-    if (eyebrow) eyebrow.textContent = (COURSE.nome || 'Sistemas de Informação').toUpperCase() + ' · 2026/2';
-  
+    if (eyebrow) eyebrow.textContent = painel + ' · ' + (COURSE.sigla || '') + ' · 2026/2';
+
     var banner = document.getElementById('scopeBanner');
     if (!banner) return;
     if (COURSE.status === 'escopo'){
