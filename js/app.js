@@ -714,6 +714,16 @@
     );
     body.appendChild(corr);
 
+<<<<<<< HEAD
+=======
+    if (rec.aviso){
+      body.appendChild(el('div', {class:'exception-banner', role:'note'}, [
+        el('div',{class:'exception-banner-title'},['⚠ Aviso sobre esta turma']),
+        el('div',{},[rec.aviso])
+      ]));
+    }
+
+>>>>>>> master
     body.appendChild(el('h5', {}, ['DETALHES DA TURMA']));
     function row(k,v){ return el('div', {class:'db-row'}, [el('span',{class:'k'},[k]), el('span',{class:'v'},[v||'—'])]); }
     body.appendChild(row('Professor(a)', rec.professor));
