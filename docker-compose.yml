@@ -1,0 +1,98 @@
+# DESENVOLVIMENTO — Painel CCET x IBIO: MySQL + API (Spring Boot) + front (nginx).
+# Produção: docker-compose.prod.yml (veja o README, seção "Ambientes").
+#   cp .env.example .env   # preencha as senhas
+#   docker compose up --build   # front http://localhost:8083 · API 127.0.0.1:8082 · MySQL 127.0.0.1:3307
+#   docker compose --profile importacao run --rm importador   # importa os dados legados (idempotente; pode repetir)
+name: painel-ccet-ibio
+
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${BANCO_NOME:?defina BANCO_NOME no .env}
+      MYSQL_USER: ${BANCO_USUARIO:?defina BANCO_USUARIO no .env}
+      MYSQL_PASSWORD: ${BANCO_SENHA:?defina BANCO_SENHA no .env}
+      MYSQL_ROOT_PASSWORD: ${BANCO_SENHA_ROOT:?defina BANCO_SENHA_ROOT no .env}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - dados-mysql:/var/lib/mysql
+    ports:
+      - "127.0.0.1:${BANCO_PORTA_HOST:-3307}:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      BANCO_HOST: db
+      BANCO_PORTA: "3306"
+      BANCO_NOME: ${BANCO_NOME}
+      BANCO_USUARIO: ${BANCO_USUARIO}
+      BANCO_SENHA: ${BANCO_SENHA}
+      COOKIE_SEGURO: ${COOKIE_SEGURO:-false}
+      CORS_ORIGENS: ${CORS_ORIGENS:-}
+      DOCS_API: ${DOCS_API_DOCKER:-false}   # DOCS_API do .env vale só para a execução local
+      ADMIN_LOGIN: ${ADMIN_LOGIN:-}
+      ADMIN_NOME: ${ADMIN_NOME:-Coordenação}
+      ADMIN_SENHA: ${ADMIN_SENHA:-}
+    ports:
+      # API publicada só na máquina (acesso direto/testes); o navegador usa o front, que faz proxy de /api.
+      - "127.0.0.1:${PORTA_API_DOCKER:-8082}:8080"
+    healthcheck:
+      # A porta só abre depois que o Flyway terminou de migrar o esquema.
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+    environment:
+      API_ALVO: http://backend:8080
+      PAINEL_DASHBOARD_URL: ${PAINEL_DASHBOARD_URL:-}
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${PORTA_WEB:-8083}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  importador:
+    profiles: ["importacao"]
+    image: node:22-alpine
+    working_dir: /ferramentas
+    depends_on:
+      backend:
+        condition: service_healthy   # o Flyway (na subida da API) cria o esquema antes da importação
+    environment:
+      BANCO_HOST: db
+      BANCO_PORTA: "3306"
+      BANCO_NOME: ${BANCO_NOME}
+      BANCO_USUARIO: ${BANCO_USUARIO}
+      BANCO_SENHA: ${BANCO_SENHA}
+    volumes:
+      - ./banco-de-dados/ferramentas:/ferramentas
+      - ./banco-de-dados/dados-legados:/dados-legados:ro
+    command: ["sh", "-c", "npm ci --omit=dev --no-audit --no-fund && node importar-dados-legados.mjs --dados /dados-legados"]
+
+volumes:
+  dados-mysql:

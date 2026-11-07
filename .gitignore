@@ -1,0 +1,35 @@
+# Segredos
+.env
+.env.*
+!.env.example
+!.env.producao.example
+*.pem
+*.key
+
+# Dependências e builds
+node_modules/
+dist/
+target/
+*.log
+
+# Relatórios gerados pela importação (podem ser regerados)
+banco-de-dados/ferramentas/relatorios/*
+!banco-de-dados/ferramentas/relatorios/.gitkeep
+
+# Dados do banco local e temporários
+*.sqlite
+*.db
+tmp/
+.tmp/
+
+# Editores / SO
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Testes
+test-results/
+playwright-report/
+backups/

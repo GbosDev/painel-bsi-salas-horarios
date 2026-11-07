@@ -1,0 +1,81 @@
+# Template processado na partida do container (envsubst da imagem oficial do nginx): ${VAR} vira o valor
+# da variável de ambiente. Variáveis do próprio nginx ($host, $uri...) não são tocadas.
+#   API_ALVO               para onde /api é encaminhado (padrão: http://backend:8080, o serviço do compose)
+#   API_HOST               cabeçalho Host repassado à API (padrão: $http_host, o do navegador)
+#   PAINEL_DASHBOARD_URL   link do dashboard externo da aba "Painel" (vazio = não configurado)
+#
+# Serve o front e encaminha /api para o backend: para o navegador é tudo a mesma origem
+# (cookie de sessão HttpOnly + CSRF funcionam sem CORS).
+
+# Atrás de um proxy HTTPS (Caddy em produção), preserva o esquema original (https) para o backend.
+map $http_x_forwarded_proto $proto_original {
+  default $http_x_forwarded_proto;
+  ''      $scheme;
+}
+
+server {
+  listen 8080;
+  server_name _;
+  server_tokens off;
+  root /usr/share/nginx/html;
+  index index.html;
+  client_max_body_size 2m;
+
+  # IP real do visitante quando há um proxy na frente (redes privadas do Docker/PaaS).
+  set_real_ip_from 10.0.0.0/8;
+  set_real_ip_from 172.16.0.0/12;
+  set_real_ip_from 192.168.0.0/16;
+  real_ip_header X-Forwarded-For;
+  real_ip_recursive on;
+
+  gzip on;
+  gzip_comp_level 5;
+  gzip_min_length 1024;
+  gzip_types text/css application/javascript application/json image/svg+xml;
+
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header X-Frame-Options "DENY" always;
+  add_header Referrer-Policy "same-origin" always;
+  add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+  # Google Fonts (Newsreader/Manrope); style-src 'unsafe-inline' por causa dos atributos style do React.
+  # frame-src: dashboards externos permitidos na aba "Painel" (src/shared/lib/dashboardExterno.ts).
+  add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-src https://lookerstudio.google.com https://datastudio.google.com https://docs.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+
+  location /api/ {
+    proxy_pass ${API_ALVO};
+    # Host ORIGINAL do navegador (com porta): a API compara o cabeçalho Origin com ele para saber que a requisição
+    # é da mesma origem (senão o CORS recusa o POST com 403). Em PaaS, com a API em outro domínio, use
+    # API_HOST='$proxy_host' aqui e CORS_ORIGENS=<url do front> na API (README, seção 8, opção B).
+    proxy_set_header Host ${API_HOST};
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $proto_original;
+    proxy_ssl_server_name on;
+    proxy_read_timeout 60s;
+  }
+
+  # Configuração do front em tempo de execução (src/shared/config/configuracao.ts).
+  location = /config.json {
+    default_type application/json;
+    add_header Cache-Control "no-store" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    return 200 '{"painelDashboardUrl":"${PAINEL_DASHBOARD_URL}"}';
+  }
+
+  location /assets/ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+    add_header X-Content-Type-Options "nosniff" always;
+  }
+
+  location / {
+    try_files $uri /index.html;
+    add_header Cache-Control "no-cache";
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "same-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-src https://lookerstudio.google.com https://datastudio.google.com https://docs.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+  }
+}

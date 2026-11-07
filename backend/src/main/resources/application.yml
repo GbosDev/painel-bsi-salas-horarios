@@ -1,0 +1,89 @@
+# Configuração base (vale para todos os ambientes). Valores vêm de variáveis de ambiente.
+# - Desenvolvimento local: o .env da raiz é lido automaticamente (CarregadorDeDotenv, em UTF-8).
+# - Produção: ative o perfil "prod" (SPRING_PROFILES_ACTIVE=prod) — veja application-prod.yml.
+spring:
+  application:
+    name: painel-api
+  datasource:
+    # Local: MySQL da máquina em 127.0.0.1:3306. No Docker o compose define BANCO_HOST=db e BANCO_PORTA=3306.
+    # BANCO_SSL_MODO: PREFERRED (padrão), REQUIRED/VERIFY_IDENTITY para bancos gerenciados na nuvem.
+    url: jdbc:mysql://${BANCO_HOST:127.0.0.1}:${BANCO_PORTA:3306}/${BANCO_NOME:painel_ccet_ibio}?useUnicode=true&characterEncoding=utf8&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&sslMode=${BANCO_SSL_MODO:PREFERRED}
+    username: ${BANCO_USUARIO}
+    password: ${BANCO_SENHA}
+    hikari:
+      maximum-pool-size: ${BANCO_POOL_MAXIMO:10}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: 1MB
+      max-request-size: 1MB
+  jackson:
+    default-property-inclusion: non_null
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+server:
+  port: ${PORTA_API:8080}
+  shutdown: graceful
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        name: PAINEL_SESSAO
+        http-only: true
+        same-site: lax
+        secure: ${COOKIE_SEGURO:false}
+  error:
+    include-message: never
+    include-stacktrace: never
+
+springdoc:
+  # Documentação OpenAPI desligada por padrão. Ligue com DOCS_API=true (só em desenvolvimento).
+  # Com PORTA_DOCS (dev local): http://localhost:<PORTA_DOCS>/actuator/swagger-ui
+  # Sem PORTA_DOCS (Docker):    http://<host>:<porta da API>/swagger-ui/index.html
+  # (springdoc.use-management-port é decidido sozinho por PortaDaDocumentacao)
+  api-docs:
+    enabled: ${DOCS_API:false}
+  swagger-ui:
+    enabled: ${DOCS_API:false}
+    # Com PORTA_DOCS o Swagger fica em outra porta (outra origem): envia cookie de sessão e cabeçalho CSRF.
+    with-credentials: true
+    csrf:
+      enabled: true
+      cookie-name: XSRF-TOKEN
+      header-name: X-XSRF-TOKEN
+
+management:
+  server:
+    # Porta de gerenciamento (Swagger + health). Vazia = mesma porta da API (Docker, produção e testes).
+    # No desenvolvimento local o .env define PORTA_DOCS=8081.
+    port: ${PORTA_DOCS:}
+  endpoints:
+    web:
+      exposure:
+        include: health,openapi,swagger-ui
+  endpoint:
+    health:
+      show-details: never
+
+bussola:
+  # Conta inicial: criada apenas se não existir nenhum usuário. Valores vêm do ambiente (.env), nunca do código.
+  administrador-inicial:
+    login: ${ADMIN_LOGIN:}
+    nome: ${ADMIN_NOME:Coordenação}
+    senha: ${ADMIN_SENHA:}
+  cors:
+    origens-permitidas: ${CORS_ORIGENS:}
+  csv:
+    tamanho-maximo-bytes: 1048576
+    linhas-maximas: 2000

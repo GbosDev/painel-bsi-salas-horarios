@@ -1,0 +1,10 @@
+**/node_modules
+**/target
+**/dist
+**/.env
+**/.env.*
+.env
+.env.*
+backups
+banco-de-dados/ferramentas/relatorios
+*.zip

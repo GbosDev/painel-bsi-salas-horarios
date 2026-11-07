@@ -1,0 +1,1 @@
+org.springframework.boot.env.EnvironmentPostProcessor=br.unirio.painel.configuracao.CarregadorDeDotenv,br.unirio.painel.configuracao.PortaDaDocumentacao

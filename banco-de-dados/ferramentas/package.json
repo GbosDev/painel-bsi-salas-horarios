@@ -1,0 +1,15 @@
+{
+  "name": "ferramentas-banco-de-dados",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Ferramentas de migração e conferência de dados do Painel CCET x IBIO",
+  "scripts": {
+    "importar": "node importar-dados-legados.mjs",
+    "simular": "node importar-dados-legados.mjs --simular",
+    "test": "node --test testes/*.test.mjs"
+  },
+  "dependencies": {
+    "mysql2": "^3.11.0"
+  }
+}

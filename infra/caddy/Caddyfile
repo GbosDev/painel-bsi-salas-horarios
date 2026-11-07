@@ -1,0 +1,18 @@
+# Proxy HTTPS de produção. Certificado Let's Encrypt automático para {$DOMINIO} (renovação incluída).
+# Requisitos: o DNS de {$DOMINIO} aponta para o IP do servidor e as portas 80 e 443 estão liberadas.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMINIO} {
+	encode zstd gzip
+
+	header {
+		# Força HTTPS no navegador por 1 ano (só ative includeSubDomains se todos os subdomínios tiverem HTTPS).
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# O nginx do frontend serve a SPA e encaminha /api para a API (mesma origem: cookie de sessão + CSRF).
+	reverse_proxy frontend:8080
+}

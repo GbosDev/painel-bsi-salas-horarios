@@ -1,0 +1,126 @@
+# PRODUÇÃO — Painel CCET x IBIO em um servidor (VM) com HTTPS automático.
+#
+#   cp .env.producao.example .env.producao      # preencha (domínio, e-mail, senhas fortes)
+#   docker compose -f docker-compose.prod.yml --env-file .env.producao up -d --build
+#   docker compose -f docker-compose.prod.yml --env-file .env.producao --profile importacao run --rm importador
+#
+# Diferenças em relação ao docker-compose.yml (desenvolvimento):
+#   - Só o Caddy fica exposto (80/443), com certificado HTTPS automático (Let's Encrypt).
+#   - Banco e API NÃO publicam portas: só existem na rede interna do Docker.
+#   - API no perfil "prod" (cookie Secure, Swagger desligado, cabeçalhos de proxy).
+#   - Projeto, volumes e rede próprios (não se misturam com os de desenvolvimento).
+name: painel-ccet-ibio-prod
+
+x-logs: &logs
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+
+services:
+  db:
+    image: mysql:8.4
+    restart: always
+    <<: *logs
+    environment:
+      MYSQL_DATABASE: ${BANCO_NOME:?defina BANCO_NOME no .env.producao}
+      MYSQL_USER: ${BANCO_USUARIO:?defina BANCO_USUARIO no .env.producao}
+      MYSQL_PASSWORD: ${BANCO_SENHA:?defina BANCO_SENHA no .env.producao}
+      MYSQL_ROOT_PASSWORD: ${BANCO_SENHA_ROOT:?defina BANCO_SENHA_ROOT no .env.producao}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - dados-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: always
+    <<: *logs
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      BANCO_HOST: db
+      BANCO_PORTA: "3306"
+      BANCO_NOME: ${BANCO_NOME}
+      BANCO_USUARIO: ${BANCO_USUARIO}
+      BANCO_SENHA: ${BANCO_SENHA}
+      CORS_ORIGENS: ""
+      ADMIN_LOGIN: ${ADMIN_LOGIN:-}
+      ADMIN_NOME: ${ADMIN_NOME:-Coordenação}
+      ADMIN_SENHA: ${ADMIN_SENHA:-}
+      JAVA_TOOL_OPTIONS: ${JAVA_OPCOES:--XX:MaxRAMPercentage=70}
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080'"]
+      interval: 15s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: always
+    <<: *logs
+    tmpfs:
+      - /tmp
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      API_ALVO: http://backend:8080
+      PAINEL_DASHBOARD_URL: ${PAINEL_DASHBOARD_URL:-}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  # Proxy HTTPS: obtém e renova o certificado sozinho para ${DOMINIO}. Única porta aberta para a internet.
+  caddy:
+    image: caddy:2.8-alpine
+    restart: always
+    <<: *logs
+    depends_on:
+      frontend:
+        condition: service_healthy
+    environment:
+      DOMINIO: "${DOMINIO:?defina DOMINIO no .env.producao, por exemplo painel.seudominio.com.br}"
+      ACME_EMAIL: ${ACME_EMAIL:?defina ACME_EMAIL no .env.producao}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-dados:/data
+      - caddy-config:/config
+
+  importador:
+    profiles: ["importacao"]
+    image: node:22-alpine
+    working_dir: /ferramentas
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      BANCO_HOST: db
+      BANCO_PORTA: "3306"
+      BANCO_NOME: ${BANCO_NOME}
+      BANCO_USUARIO: ${BANCO_USUARIO}
+      BANCO_SENHA: ${BANCO_SENHA}
+    volumes:
+      - ./banco-de-dados/ferramentas:/ferramentas
+      - ./banco-de-dados/dados-legados:/dados-legados:ro
+    command: ["sh", "-c", "npm ci --omit=dev --no-audit --no-fund && node importar-dados-legados.mjs --dados /dados-legados"]
+
+volumes:
+  dados-mysql:
+  caddy-dados:
+  caddy-config:

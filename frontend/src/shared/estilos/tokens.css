@@ -1,0 +1,53 @@
+/* ============================================================
+   DESIGN TOKENS — única fonte de cor, tipografia, espaçamento,
+   raio, sombra e movimento. Componentes só usam var(--...).
+   ============================================================ */
+:root{
+    --ink:        #1E2A44;
+    --ink-2:      #2D3E5E;
+    --ink-soft:   #445374;
+    --paper:      #F6F3EC;
+    --paper-2:    #EDE7D8;
+    --paper-3:    #E4DCC7;
+    --line:       #D7CEB6;
+    --line-soft:  #E3DBC6;
+    --slate:      #5C6B85;
+    --white:      #FFFEFB;
+    --amber:      #E1A03C;
+    --amber-deep: #B97A22;
+    --amber-soft: #F3D9A6;
+    --teal:       #3D8577;
+    --teal-soft:  #CFE3DE;
+    --teal-deep:  #2A5F55;
+    --plum:       #7C5A72;
+    --plum-soft:  #E4D6DF;
+    --plum-deep:  #5C4155;
+    --rose:       #B65C4A;
+    --rose-soft:  #EFD6CE;
+
+    /* brand/header identity — overridden per curso via body[data-theme] */
+    --brand-bg:          var(--ink);
+    --brand-bg-2:        var(--ink-2);
+    --brand-accent:      var(--amber);
+    --brand-accent-soft: var(--amber-soft);
+    --brand-accent-deep: var(--amber-deep);
+
+    --font-display: 'Newsreader', Georgia, serif;
+    --font-body: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  
+    --radius-sm: 3px;
+    --radius-md: 6px;
+    --shadow-soft: 0 10px 30px -18px rgba(30,42,68,0.35);
+    --ease: cubic-bezier(.22,.9,.32,1);
+
+    /* espaçamento (escala de 4px) */
+    --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px; --space-7: 48px;
+    /* movimento */
+    --motion-fast: 150ms; --motion-base: 220ms; --motion-slow: 300ms;
+    /* foco visível (WCAG 2.2 AA: 2.4.7 / 2.4.11) */
+    --focus-ring: 0 0 0 3px var(--brand-accent-soft), 0 0 0 5px var(--brand-accent-deep);
+    --radius-lg: 12px;
+    --shadow-pop: 0 18px 48px -20px rgba(30,42,68,.45);
+    --z-drawer: 60; --z-modal: 80; --z-toast: 100;
+    --tap-min: 44px;
+  }

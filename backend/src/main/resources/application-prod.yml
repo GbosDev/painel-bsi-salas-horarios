@@ -1,0 +1,27 @@
+# Perfil de PRODUÇÃO (SPRING_PROFILES_ACTIVE=prod). Sobrepõe application.yml com valores seguros
+# que não dependem de alguém lembrar de configurar o .env corretamente.
+server:
+  # Atrás do proxy HTTPS (Caddy/nginx/PaaS): respeita X-Forwarded-Proto/For para esquema e IP reais.
+  forward-headers-strategy: native
+  servlet:
+    session:
+      cookie:
+        # Cookie de sessão só trafega em HTTPS.
+        secure: true
+
+springdoc:
+  # Documentação nunca é publicada em produção.
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+management:
+  server:
+    # Health na mesma porta da API; o proxy só encaminha /api/, então /actuator não fica exposto à internet.
+    port:
+
+logging:
+  level:
+    root: INFO
+    org.hibernate.SQL: WARN
