@@ -40,7 +40,7 @@ Requisições que alteram dados (`POST`, `PUT`, `DELETE`) precisam do cabeçalho
 | Rota | Descrição |
 |---|---|
 | `GET /cursos/{codigo}/plano` | plano salvo |
-| `PUT /cursos/{codigo}/plano` `{turmaIds}` | grava; **409 `plano_com_conflito`** se houver choque |
+| `PUT /cursos/{codigo}/plano` `{turmaIds}` | grava; **409 `plano_com_conflito`** se houver choque (mesmo dia e `inícioA < inícioB + duração && inícioB < inícioA + duração`, duração = 2 h no BSI, 1 h nos demais), com `conflitos: [{dia, inicio, fim, turmaIds, turmas}]` no corpo |
 
 ### Professor (`PROFESSOR`)
 | Rota | Descrição |

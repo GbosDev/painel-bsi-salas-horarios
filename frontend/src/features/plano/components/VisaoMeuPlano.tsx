@@ -1,86 +1,142 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ErroDeApi } from '../../../shared/api/cliente';
-import { plano as apiPlano } from '../api/planoApi';
-import { usePainelDoCurso } from '../../cursos/hooks/PainelDoCurso';
-import { textoDaTurma } from '../../../shared/lib/busca';
-import { celulaTemConflito, encontrarConflitos, textoDoTrecho } from '../../../shared/lib/conflitos';
-import {
-  DIAS,
-  DIA_CURTO,
-  DIA_LONGO,
-  formatarHora,
-  hhmm,
-  opcoesDeInicio,
-  paraMinutos,
-} from '../../../shared/lib/horarios';
-import { nomePrincipal } from '../../../shared/lib/rotulos';
 import type { Turma } from '../../../shared/api/tipos';
 import { Carregando, ErroComTentativa } from '../../../shared/ui/Estados';
 import { useToasts } from '../../../shared/ui/Toasts';
+import { useSessao } from '../../autenticacao/hooks/Sessao';
+import { usePainelDoCurso } from '../../cursos/hooks/PainelDoCurso';
+import { plano as apiPlano } from '../api/planoApi';
+import { chosen, conflictCellKeys, conflictIds, findConflicts, getHours, getSlot, type Choque } from '../lib/planUtils';
+import { MinhaSemana } from './MinhaSemana';
+import { PlanCatalog } from './PlanCatalog';
+import { PlanConflictBanner } from './PlanConflictBanner';
+import { PlanConflictModal } from './PlanConflictModal';
+import { PlanGrid } from './PlanGrid';
+import { PlanStats } from './PlanStats';
+import './MeuPlano.css';
 
-const CORES = ['#3D8577', '#7C5A72', '#B97A22', '#B65C4A', '#445374', '#2A5F55', '#5C4155'];
+const LEAD_ADICIONAR =
+  'Não foi possível adicionar esta turma ao plano porque o horário conflita com outra disciplina já escolhida. Desmarque uma das duas para continuar.';
+const LEAD_SALVAR =
+  'Não foi possível salvar o plano porque existem choques de horário entre as turmas. Desmarque uma das turmas indicadas e tente novamente.';
+const SEM_IDS: number[] = [];
 
-function mesmaLista(a: number[], b: number[]): boolean {
-  return a.length === b.length && a.every((v, i) => v === b[i]);
+/** Aba "Meu plano": só para ALUNO logado (a aba também some do cabeçalho e a rota redireciona — ver abasDoPerfil/Casca). */
+export function VisaoMeuPlano() {
+  const { usuario } = useSessao();
+  if (!usuario || usuario.perfil !== 'ALUNO') return null;
+  return <MeuPlano />;
 }
 
-export function VisaoMeuPlano() {
+function MeuPlano() {
   const { painel } = usePainelDoCurso();
   const { turmas, curso } = painel;
-  const duracao = curso.duracaoAulaHoras;
+  const slot = getSlot(curso);
   const cliente = useQueryClient();
   const { avisar } = useToasts();
-  const chave = ['plano', curso.codigo] as const;
+  const chave = useMemo(() => ['plano', curso.codigo] as const, [curso.codigo]);
   const consulta = useQuery({ queryKey: chave, queryFn: () => apiPlano.obter(curso.codigo) });
-  const salvo = useMemo(() => consulta.data?.turmaIds ?? [], [consulta.data]);
-  // seleção em edição; null = ainda igual ao plano salvo no servidor (estado derivado, sem efeito)
+  const saved = consulta.data?.turmaIds ?? SEM_IDS;
+
+  // seleção em edição; null = igual ao plano salvo no servidor (estado derivado, sem efeito)
   const [edicao, setEdicao] = useState<number[] | null>(null);
-  const sel = edicao ?? salvo;
-  const setSel = (f: number[] | ((a: number[]) => number[])) =>
-    setEdicao((atual) => (typeof f === 'function' ? f(atual ?? salvo) : f));
+  const sel = edicao ?? saved;
   const [q, setQ] = useState('');
-  const [erro, setErro] = useState<{ mensagem: string; detalhes: string[] } | null>(null);
+  const [modal, setModal] = useState<{ conflicts: Choque[]; lead: string } | null>(null);
+  const [flashIds, setFlashIds] = useState<Set<number>>(() => new Set());
+  const mainRef = useRef<HTMLDivElement>(null);
+  const timers = useRef<number[]>([]);
+
+  useEffect(() => {
+    const pendentes = timers.current;
+    return () => pendentes.forEach((t) => window.clearTimeout(t));
+  }, []);
+
+  const porId = useMemo(() => new Map(turmas.map((t) => [t.id, t])), [turmas]);
+  const conflictList = useMemo(() => findConflicts(sel, porId, slot), [sel, porId, slot]);
+  const cellClash = useMemo(() => conflictCellKeys(conflictList), [conflictList]);
+  const hours = useMemo(() => getHours(turmas, curso.codigo), [turmas, curso.codigo]);
+  const dirty = JSON.stringify(sel) !== JSON.stringify(saved);
+  const picks = chosen(sel, porId);
+  const sp = chosen(saved, porId);
+
+  /** Converte os choques do 409 (dia, início, fim, turmas) para o formato do modal. */
+  const choquesDoServidor = useCallback(
+    (e: ErroDeApi): Choque[] =>
+      e.conflitos.flatMap((c) => {
+        const [a, b] = c.turmaIds.map((id) => porId.get(id));
+        if (!a || !b) return [];
+        const hour = Number(c.inicio.slice(0, 2));
+        return [{ day: c.dia, hour, end: Number(c.fim.slice(0, 2)), hours: [hour, hour], recs: [a, b] }];
+      }),
+    [porId],
+  );
 
   const gravar = useMutation({
     mutationFn: (ids: number[]) => apiPlano.salvar(curso.codigo, ids),
     onSuccess: (r) => {
       cliente.setQueryData(chave, r);
       setEdicao(null);
-      avisar('Plano salvo.');
     },
-    onError: (e: unknown) => {
-      if (e instanceof ErroDeApi) setErro({ mensagem: e.message, detalhes: e.detalhes });
-      else setErro({ mensagem: 'Não foi possível salvar o plano.', detalhes: [] });
+    onError: (e: unknown, ids) => {
+      // `saved` fica como estava: o cache só muda no sucesso
+      if (e instanceof ErroDeApi && e.status === 409) {
+        const conflicts = choquesDoServidor(e);
+        const locais = conflicts.length ? conflicts : findConflicts(ids, porId, slot);
+        if (locais.length) {
+          setModal({ conflicts: locais, lead: LEAD_SALVAR });
+          return;
+        }
+      }
+      avisar(e instanceof Error ? e.message : 'Não foi possível salvar o plano.', 'erro');
     },
   });
-  const salvando = gravar.isPending;
 
-  const porId = useMemo(() => new Map(turmas.map((t) => [t.id, t])), [turmas]);
-  const escolhidas = sel.map((id) => porId.get(id)).filter((t): t is Turma => !!t);
-  const conflitos = useMemo(() => encontrarConflitos(escolhidas), [escolhidas]);
-  const horas = useMemo(() => opcoesDeInicio(turmas, duracao), [turmas, duracao]);
-  const sujo = !mesmaLista(sel, salvo);
-  const termo = q.toLowerCase();
-
-  function alternar(id: number) {
-    setErro(null);
-    setSel((atual) => (atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]));
+  function toggle(r: Turma) {
+    if (sel.indexOf(r.id) >= 0) {
+      setEdicao(sel.filter((i) => i !== r.id));
+      return;
+    }
+    const next = sel.concat(r.id);
+    const clashes = findConflicts(next, porId, slot).filter((c) => c.recs.some((rec) => rec.id === r.id));
+    if (clashes.length) {
+      setModal({ conflicts: clashes, lead: LEAD_ADICIONAR });
+      return;
+    }
+    setEdicao(next);
   }
 
-  function salvar() {
-    if (conflitos.length) return; // a validação definitiva é do servidor; aqui evita a viagem de rede
-    setErro(null);
+  function save() {
+    const clashes = findConflicts(sel, porId, slot);
+    if (clashes.length) {
+      setModal({ conflicts: clashes, lead: LEAD_SALVAR });
+      return;
+    }
     gravar.mutate(sel);
   }
 
-  const salvas = salvo.map((id) => porId.get(id)).filter((t): t is Turma => !!t);
-  const agenda = DIAS.map((d) => ({
-    dia: d,
-    itens: salvas
-      .flatMap((t) => t.horarios.filter((h) => h.diaSemana === d).map((h) => ({ t, h })))
-      .sort((a, b) => paraMinutos(a.h.inicio) - paraMinutos(b.h.inicio)),
-  }));
+  const closeModal = useCallback(() => setModal(null), []);
+
+  /** "Ajustar horários": fecha o aviso, leva até a grade e destaca as turmas envolvidas no choque. */
+  function goAdjust(conflicts: Choque[]) {
+    setModal(null);
+    const target = mainRef.current;
+    if (target) {
+      try {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch {
+        target.scrollIntoView();
+      }
+    }
+    const ids = conflictIds(conflicts);
+    timers.current.push(
+      window.setTimeout(() => {
+        setFlashIds(ids);
+        timers.current.push(window.setTimeout(() => setFlashIds(new Set()), 2200));
+      }, 350),
+    );
+  }
 
   if (consulta.isPending)
     return (
@@ -88,7 +144,7 @@ export function VisaoMeuPlano() {
         <Carregando rotulo="Carregando seu plano…" linhas={5} />
       </section>
     );
-  if (consulta.isError) {
+  if (consulta.isError)
     return (
       <section className="view active" id="view-plano">
         <ErroComTentativa
@@ -98,7 +154,6 @@ export function VisaoMeuPlano() {
         />
       </section>
     );
-  }
 
   return (
     <section className="view active" id="view-plano">
@@ -106,193 +161,39 @@ export function VisaoMeuPlano() {
         <div>
           <h2>Meu plano de aulas</h2>
           <div className="desc">
-            Escolha as turmas em que você está inscrito. O painel monta a semana, mostra as salas e avisa se houver
-            conflito de horário.
+            Escolha as turmas em que você está inscrito. O painel monta a semana e avisa quando há choque de horário.
           </div>
         </div>
       </div>
 
-      <div className="csv-summary">
-        <div>
-          <div className="n">{escolhidas.length}</div>
-          <div className="lbl">turma(s) selecionada(s)</div>
-        </div>
-      </div>
-
-      {conflitos.length > 0 && (
-        <div className="plan-error" role="alert">
-          <div className="plan-error-title">
-            Não foi possível salvar seu plano porque existem conflitos de horários entre as turmas selecionadas.
-          </div>
-          <div className="plan-error-sub">
-            Revise os dias e horários das disciplinas indicadas e ajuste as informações antes de tentar novamente.
-          </div>
-          <div className="plan-error-list">
-            {conflitos.map((c) => (
-              <div className="plan-error-item" key={`${c.dia}-${c.inicio}-${c.fim}`}>
-                <b>
-                  {DIA_LONGO[c.dia]} · {textoDoTrecho(c)}
-                </b>
-                :{' '}
-                {c.turmas
-                  .map((t) => {
-                    const n = nomePrincipal(t);
-                    return `${n.sigla} — ${n.nome}`;
-                  })
-                  .join('  ×  ')}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      {erro && (
-        <div className="plan-error" role="alert">
-          <div className="plan-error-title">{erro.mensagem}</div>
-          {erro.detalhes.length > 0 && (
-            <div className="plan-error-list">
-              {erro.detalhes.map((d) => (
-                <div className="plan-error-item" key={d}>
-                  {d}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <PlanStats turmaCount={picks.length} />
+      <PlanConflictBanner conflictList={conflictList} />
 
       <div className="pl-layout">
-        <div className="pl-cat">
-          <input
-            type="text"
-            aria-label="Filtrar turmas"
-            placeholder="Filtrar por sigla, disciplina ou professor"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <div className="pl-list">
-            {turmas
-              .filter((t) => !termo || textoDaTurma(t).includes(termo))
-              .map((t) => {
-                const n = nomePrincipal(t);
-                const ligada = sel.includes(t.id);
-                return (
-                  <button
-                    type="button"
-                    key={t.id}
-                    className={`pl-item${ligada ? ' on' : ''}`}
-                    aria-pressed={ligada}
-                    onClick={() => alternar(t.id)}
-                  >
-                    <b>{n.sigla}</b>
-                    <span>{n.nome}</span>
-                    <small>
-                      {t.professor ?? ''} · {t.sala ?? 'sem sala'} ·{' '}
-                      {t.horarios.map((h) => `${DIA_CURTO[h.diaSemana]} ${hhmm(h.inicio)}`).join(', ') ||
-                        'sem horário fixo'}
-                    </small>
-                  </button>
-                );
-              })}
-          </div>
-        </div>
-        <div className="pl-main">
-          <div className="pl-bar">
-            <button
-              type="button"
-              className="edit-save-btn"
-              disabled={!sujo || conflitos.length > 0 || salvando}
-              onClick={salvar}
-            >
-              {conflitos.length
-                ? 'Resolva os choques para salvar'
-                : salvando
-                  ? 'Salvando…'
-                  : sujo
-                    ? 'Salvar plano'
-                    : 'Plano salvo'}
-            </button>
-          </div>
-          <div className="pl-gridwrap">
-            <div className="pl-grid">
-              <div />
-              {DIAS.map((d) => (
-                <div className="pl-dh" key={d}>
-                  {DIA_CURTO[d]}
-                </div>
-              ))}
-              {horas.flatMap((h) => [
-                <div className="pl-hh" key={`h${h}`}>
-                  {formatarHora(h)}
-                </div>,
-                ...DIAS.map((d) => (
-                  <div
-                    key={`${h}-${d}`}
-                    className={`pl-cell${celulaTemConflito(conflitos, d, h * 60, (h + duracao) * 60) ? ' clash' : ''}`}
-                  >
-                    {escolhidas
-                      .filter((t) =>
-                        t.horarios.some((x) => x.diaSemana === d && Math.floor(paraMinutos(x.inicio) / 60) === h),
-                      )
-                      .map((t) => (
-                        <div
-                          key={t.id}
-                          className="pl-block"
-                          style={{ background: CORES[sel.indexOf(t.id) % CORES.length] }}
-                        >
-                          <b>{nomePrincipal(t).sigla}</b>
-                          <span>{t.sala ?? 'sem sala'}</span>
-                        </div>
-                      ))}
-                  </div>
-                )),
-              ])}
-            </div>
-          </div>
-        </div>
+        <PlanCatalog turmas={turmas} sel={sel} q={q} flashIds={flashIds} onQ={setQ} onToggle={toggle} />
+        <PlanGrid
+          ref={mainRef}
+          picks={picks}
+          sel={sel}
+          hours={hours}
+          cellClash={cellClash}
+          flashIds={flashIds}
+          canAttempt={dirty || conflictList.length > 0}
+          saving={gravar.isPending}
+          onSave={save}
+        />
       </div>
 
-      <div className="pl-agenda">
-        <h3>Minha semana</h3>
-        {salvas.length === 0 ? (
-          <div className="rd-empty">
-            Salve um plano para ver sua agenda organizada por dia, com disciplina, professor(a) e sala de cada aula.
-          </div>
-        ) : (
-          <>
-            <div className="pl-daypills">
-              {agenda.map((a) => (
-                <a key={a.dia} href={`#pl-day-${a.dia}`} className={`pl-pill${a.itens.length ? ' has' : ''}`}>
-                  {DIA_CURTO[a.dia]}
-                  <span className="ct">{a.itens.length}</span>
-                </a>
-              ))}
-            </div>
-            {agenda.map((a) => (
-              <div className="pl-day" id={`pl-day-${a.dia}`} key={a.dia}>
-                <h4>{DIA_LONGO[a.dia]}</h4>
-                {a.itens.length === 0 && <div className="pl-day-empty">Nenhuma aula — dia livre.</div>}
-                {a.itens.map(({ t, h }, i) => {
-                  const n = nomePrincipal(t);
-                  const cor = CORES[Math.max(0, sel.indexOf(t.id)) % CORES.length];
-                  return (
-                    <div className="pl-row" style={{ borderLeftColor: cor }} key={`${t.id}-${i}`}>
-                      <b>{hhmm(h.inicio)}</b>
-                      <div>
-                        <strong>
-                          {n.sigla} — {n.nome}
-                        </strong>
-                        <small>
-                          {t.professor ?? 'professor não informado'} · {t.sala ?? 'sem sala'}
-                        </small>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </>
-        )}
-      </div>
+      <MinhaSemana sp={sp} saved={saved} slot={slot} />
+
+      {modal && (
+        <PlanConflictModal
+          conflicts={modal.conflicts}
+          lead={modal.lead}
+          onClose={closeModal}
+          onAdjust={() => goAdjust(modal.conflicts)}
+        />
+      )}
     </section>
   );
 }

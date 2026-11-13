@@ -1,10 +1,10 @@
 package br.unirio.painel.plano.aplicacao;
 
 import br.unirio.painel.catalogo.aplicacao.RepositorioDeCatalogo;
+import br.unirio.painel.catalogo.dominio.Curso;
 import br.unirio.painel.compartilhado.ErroDeNegocio;
 import br.unirio.painel.oferta.aplicacao.RepositorioDeTurmas;
 import br.unirio.painel.oferta.dominio.ConflitoDeHorario;
-import br.unirio.painel.oferta.dominio.ConflitosDeHorario;
 import br.unirio.painel.oferta.dominio.Turma;
 import br.unirio.painel.plano.aplicacao.RepositorioDePlanos.PlanoSalvo;
 import java.time.Clock;
@@ -43,7 +43,7 @@ public class ServicoDePlano {
 
     @Transactional
     public PlanoSalvo salvar(long usuarioId, String cursoCodigo, List<Long> turmaIdsSolicitadas) {
-        exigirCurso(cursoCodigo);
+        Curso curso = exigirCurso(cursoCodigo);
         List<Long> ids = turmaIdsSolicitadas == null ? List.of() : List.copyOf(new LinkedHashSet<>(turmaIdsSolicitadas));
         Map<Long, Turma> doCurso = turmas.listarDoCurso(cursoCodigo).stream()
                 .collect(Collectors.toMap(Turma::id, Function.identity()));
@@ -52,7 +52,8 @@ public class ServicoDePlano {
             throw ErroDeNegocio.invalido("plano_turma_invalida",
                     "Há turmas que não existem neste curso ou foram removidas.", invalidas);
         }
-        List<ConflitoDeHorario> conflitos = ConflitosDeHorario.entre(ids.stream().map(doCurso::get).toList());
+        // mesma regra do front: mesmo dia e [início, início + duração da aula do curso) sobrepostos
+        List<ConflitoDeHorario> conflitos = ChoquesDoPlano.entre(ids.stream().map(doCurso::get).toList(), curso.duracaoAulaHoras());
         if (!conflitos.isEmpty()) {
             throw new PlanoComConflitoException(conflitos);
         }
@@ -61,7 +62,7 @@ public class ServicoDePlano {
         return new PlanoSalvo(ids, agora);
     }
 
-    private void exigirCurso(String codigo) {
-        catalogo.curso(codigo).orElseThrow(() -> ErroDeNegocio.naoEncontrado("curso_nao_encontrado", "Curso não encontrado: " + codigo));
+    private Curso exigirCurso(String codigo) {
+        return catalogo.curso(codigo).orElseThrow(() -> ErroDeNegocio.naoEncontrado("curso_nao_encontrado", "Curso não encontrado: " + codigo));
     }
 }

@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { buscarTurmas } from '../shared/lib/busca';
-import { celulaTemConflito, celulasEmConflito, encontrarConflitos } from '../shared/lib/conflitos';
+import {
+  conflictCellKeys,
+  conflictIds,
+  findConflicts,
+  fmtHour,
+  fmtRange,
+  getHours,
+  overlaps,
+} from '../features/plano/lib/planUtils';
 import {
   agoraDe,
   deMinutos,
@@ -69,43 +77,45 @@ describe('horários', () => {
   });
 });
 
-describe('conflitos de plano', () => {
-  it('não há conflito entre horários consecutivos', () => {
-    const a = turma({ horarios: [hor(1, '14:00', '16:00')] });
-    const b = turma({ horarios: [hor(1, '16:00', '18:00')] });
-    expect(encontrarConflitos([a, b])).toEqual([]);
+describe('conflitos de plano (planUtils)', () => {
+  const mapa = (...ts: ReturnType<typeof turma>[]) => new Map(ts.map((t) => [t.id, t]));
+
+  it('formata horas e faixas', () => {
+    expect(fmtHour(8)).toBe('08:00');
+    expect(fmtRange(14, 2)).toBe('14:00–16:00');
   });
 
-  it('conflito entre aula de 2h e aula de 1h que começa na segunda hora', () => {
+  it('sobreposição usa a duração da aula (slot), não só a hora de início', () => {
+    expect(overlaps(14, 15, 2)).toBe(true);
+    expect(overlaps(14, 16, 2)).toBe(false);
+    expect(overlaps(14, 15, 1)).toBe(false);
+    expect(overlaps(14, 14, 1)).toBe(true);
+  });
+
+  it('BSI (slot 2): 14h e 16h não chocam; 16h e 17h chocam no trecho 17–18', () => {
     const a = turma({ horarios: [hor(3, '16:00', '18:00')] });
-    const b = turma({ horarios: [hor(3, '17:00', '18:00')] });
-    const c = encontrarConflitos([a, b]);
-    expect(c).toHaveLength(1);
-    expect(c[0]).toMatchObject({ dia: 3, inicio: 17 * 60, fim: 18 * 60 });
-    expect(c[0]?.turmas.map((t) => t.id)).toEqual([a.id, b.id]);
+    const b = turma({ horarios: [hor(3, '17:00', '19:00')] });
+    const c = turma({ horarios: [hor(3, '14:00', '16:00')] });
+    const m = mapa(a, b, c);
+    expect(findConflicts([c.id, a.id], m, 2)).toEqual([]);
+    const lista = findConflicts([a.id, b.id], m, 2);
+    expect(lista).toHaveLength(1);
+    expect(lista[0]).toMatchObject({ day: 3, hour: 17, end: 18, hours: [16, 17] });
+    expect([...conflictIds(lista)]).toEqual([a.id, b.id]);
+    expect([...conflictCellKeys(lista)]).toEqual(['3-16', '3-17']);
   });
 
-  it('agrupa três turmas no mesmo trecho em um único conflito', () => {
-    const t = [1, 2, 3].map(() => turma({ horarios: [hor(2, '08:00', '10:00')] }));
-    const c = encontrarConflitos(t);
-    expect(c).toHaveLength(1);
-    expect(c[0]?.turmas).toHaveLength(3);
+  it('dias diferentes nunca chocam e ids inexistentes são ignorados', () => {
+    const a = turma({ horarios: [hor(1, '14:00', '16:00')] });
+    const b = turma({ horarios: [hor(2, '14:00', '16:00')] });
+    expect(findConflicts([a.id, b.id, 999], mapa(a, b), 2)).toEqual([]);
   });
 
-  it('marca as células da grade afetadas', () => {
-    const a = turma({ horarios: [hor(2, '16:00', '18:00')] });
-    const b = turma({ horarios: [hor(2, '17:00', '19:00')] });
-    const celulas = celulasEmConflito(encontrarConflitos([a, b]));
-    expect([...celulas]).toEqual(['2|17']);
-  });
-
-  it('célula de 2h (16–18) é marcada quando o choque está só na segunda hora', () => {
-    const a = turma({ horarios: [hor(2, '16:00', '18:00')] });
-    const b = turma({ horarios: [hor(2, '17:00', '19:00')] });
-    const c = encontrarConflitos([a, b]);
-    expect(celulaTemConflito(c, 2, 16 * 60, 18 * 60)).toBe(true);
-    expect(celulaTemConflito(c, 2, 18 * 60, 20 * 60)).toBe(false);
-    expect(celulaTemConflito(c, 3, 16 * 60, 18 * 60)).toBe(false);
+  it('linhas da grade: BSI tem [8,14,16,18,20] + extras; outros cursos vão de hora em hora', () => {
+    const t = [turma({ horarios: [hor(1, '10:00', '12:00')] }), turma({ horarios: [hor(2, '13:00', '14:00')] })];
+    expect(getHours(t, 'bsi')).toEqual([8, 10, 13, 14, 16, 18, 20]);
+    expect(getHours(t, 'mat')).toEqual([10, 11, 12, 13]);
+    expect(getHours([], 'mat')).toEqual([]);
   });
 });
 

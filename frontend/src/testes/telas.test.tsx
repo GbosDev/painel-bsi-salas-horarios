@@ -11,6 +11,7 @@ import { AgoraProvider } from '../shared/contexto/Agora';
 import { DicasProvider } from '../shared/contexto/Dicas';
 import { PainelDoCursoProvider } from '../features/cursos/hooks/PainelDoCurso';
 import { SessaoProvider } from '../features/autenticacao/hooks/Sessao';
+import { ToastsProvider } from '../shared/ui/Toasts';
 import { renderizar } from './envoltorio';
 import { curso, disc, hor, sala, turma } from './fabrica';
 
@@ -209,47 +210,88 @@ describe('Salas', () => {
 
 describe('Meu plano', () => {
   const a = turma({ curr2023: disc('AAA', 'Aula A'), sala: 'Sala 1', horarios: [hor(3, '16:00', '18:00')] });
-  const b = turma({ curr2023: disc('BBB', 'Aula B'), sala: 'Sala 2', horarios: [hor(3, '17:00', '18:00')] });
+  const b = turma({ curr2023: disc('BBB', 'Aula B'), sala: 'Sala 2', horarios: [hor(3, '17:00', '19:00')] });
   const c = turma({ curr2023: disc('CCC', 'Aula C'), sala: 'Sala 2', horarios: [hor(4, '08:00', '10:00')] });
+  const ori = turma({ curr2023: disc('ORI', 'Orientação'), sala: null, horarios: [] });
+  const PLANO = '/api/v1/cursos/bsi/plano';
 
-  function montar(extra: Rota[] = []) {
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  function montar(extra: Rota[] = [], perfil: Perfil = 'ALUNO') {
     const f = simularApi([
-      (u, i) =>
-        u === '/api/v1/cursos/bsi/plano' && (i?.method ?? 'GET') === 'GET'
-          ? json(200, { turmaIds: [], atualizadoEm: null })
-          : undefined,
+      (u) => (u === '/api/v1/auth/eu' ? json(200, { id: 1, login: 'ana', nome: 'Ana', perfil }) : undefined),
       ...extra,
+      (u, i) =>
+        u === PLANO && (i?.method ?? 'GET') === 'GET' ? json(200, { turmaIds: [], atualizadoEm: null }) : undefined,
     ]);
     renderizar(
       <MemoryRouter>
-        <AgoraProvider fixo={new Date(2026, 9, 27, 10, 0)}>
-          <DicasProvider>
-            <PainelDoCursoProvider painel={painelDe([a, b, c])} recarregar={async () => undefined}>
+        <SessaoProvider>
+          <ToastsProvider>
+            <PainelDoCursoProvider painel={painelDe([a, b, c, ori])} recarregar={async () => undefined}>
               <VisaoMeuPlano />
             </PainelDoCursoProvider>
-          </DicasProvider>
-        </AgoraProvider>
+          </ToastsProvider>
+        </SessaoProvider>
       </MemoryRouter>,
     );
     return f;
   }
 
-  it('bloqueia o salvamento e explica o choque quando duas turmas se sobrepõem', async () => {
-    const f = montar();
-    await userEvent.click(await screen.findByRole('button', { name: /AAA/ }));
-    await userEvent.click(screen.getByRole('button', { name: /BBB/ }));
-    const alerta = await screen.findByRole('alert');
-    expect(alerta).toHaveTextContent('conflitos de horários');
-    expect(alerta).toHaveTextContent('Quarta-feira · 17:00–18:00');
-    const salvar = screen.getByRole('button', { name: 'Resolva os choques para salvar' });
-    expect(salvar).toBeDisabled();
-    expect(f.mock.calls.some((x) => (x[1]?.method ?? 'GET') === 'PUT')).toBe(false);
+  const houvePut = (f: ReturnType<typeof simularApi>) => f.mock.calls.some((x) => x[1]?.method === 'PUT');
+
+  it('mostra cabeçalho, contador e catálogo; turma sem horário aparece como tal', async () => {
+    montar();
+    expect(await screen.findByRole('heading', { name: 'Meu plano de aulas' })).toBeInTheDocument();
+    expect(screen.getByText('Quantidade de turmas')).toBeInTheDocument();
+    expect(screen.getByText('turmas no plano')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ORI/ })).toHaveTextContent('Prof. Teste · sem sala · sem horário fixo');
+    expect(screen.getByRole('button', { name: /AAA/ })).toHaveTextContent('QUA 16:00');
+    expect(screen.getByRole('button', { name: 'Plano salvo' })).toBeDisabled();
+    expect(screen.getByText(/Salve um plano para ver a semana organizada/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Filtrar turmas'), 'zzz');
+    expect(screen.getByText('Nenhuma turma encontrada.')).toBeInTheDocument();
   });
 
-  it('salva no servidor quando não há choque e mostra a agenda "Minha semana"', async () => {
+  it('não adiciona turma com choque: abre o modal e "Ajustar horários" destaca as turmas', async () => {
+    const f = montar();
+    await userEvent.click(await screen.findByRole('button', { name: /AAA/ }));
+    expect(screen.getByText('turma no plano')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /BBB/ }));
+    const modal = await screen.findByRole('alertdialog', { name: 'Choque de horários' });
+    expect(modal).toHaveTextContent('Não foi possível adicionar esta turma ao plano');
+    expect(within(modal).getByText('Quarta-feira · 17:00–18:00')).toBeInTheDocument();
+    expect(modal).toHaveTextContent('AAA — Aula A × BBB — Aula B');
+    const ajustar = within(modal).getByRole('button', { name: 'Ajustar horários' });
+    expect(ajustar).toHaveFocus();
+    expect(screen.getByRole('button', { name: /BBB/ })).toHaveAttribute('aria-pressed', 'false');
+
+    await userEvent.click(ajustar);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+    await waitFor(() => expect(document.querySelector(`.pl-item[data-rec="${b.id}"]`)).toHaveClass('flash-conflict'));
+    expect(document.querySelector(`.pl-block[data-rec="${a.id}"]`)).toHaveClass('flash-conflict');
+    expect(houvePut(f)).toBe(false);
+  });
+
+  it('Esc e clique no fundo fecham o modal', async () => {
+    montar();
+    await userEvent.click(await screen.findByRole('button', { name: /AAA/ }));
+    await userEvent.click(screen.getByRole('button', { name: /BBB/ }));
+    await screen.findByRole('alertdialog');
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: /BBB/ }));
+    await userEvent.click(document.getElementById('planConflictModal') as HTMLElement);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('salva no servidor e monta "Minha semana" com o plano salvo', async () => {
     const f = montar([
       (u, i) =>
-        u === '/api/v1/cursos/bsi/plano' && i?.method === 'PUT'
+        u === PLANO && i?.method === 'PUT'
           ? json(200, { turmaIds: JSON.parse(String(i.body)).turmaIds, atualizadoEm: '2026-10-25T10:00:00Z' })
           : undefined,
     ]);
@@ -259,25 +301,53 @@ describe('Meu plano', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Plano salvo' })).toBeDisabled());
     const put = f.mock.calls.find((x) => x[1]?.method === 'PUT');
     expect(JSON.parse(String(put?.[1]?.body))).toEqual({ turmaIds: [a.id, c.id] });
-    expect(screen.queryByText(/Salve um plano para ver sua agenda/)).toBeNull();
-    expect(screen.getByText('AAA — Aula A')).toBeInTheDocument();
+    const quarta = screen.getByRole('region', { name: 'Quarta-feira' });
+    expect(quarta).toHaveTextContent('1 aula');
+    expect(quarta).toHaveTextContent('16:00–18:00');
+    expect(quarta).toHaveTextContent('Prof. Teste · Sala 1');
+    const segunda = screen.getByRole('region', { name: 'Segunda-feira' });
+    expect(segunda).toHaveClass('is-free');
+    expect(segunda).toHaveTextContent('livre');
+    expect(segunda).toHaveTextContent('Nenhuma aula neste dia.');
   });
 
-  it('exibe os detalhes devolvidos pelo servidor quando ele recusa o plano (409)', async () => {
+  it('409 do servidor abre o mesmo modal com os choques devolvidos e não altera o plano salvo', async () => {
     montar([
       (u, i) =>
-        u === '/api/v1/cursos/bsi/plano' && i?.method === 'PUT'
+        u === PLANO && i?.method === 'PUT'
           ? json(409, {
               codigo: 'plano_com_conflito',
-              detail: 'Plano recusado pelo servidor.',
-              detalhes: ['Quarta 17:00: AAA × BBB'],
+              detail: 'Plano recusado.',
+              detalhes: [],
+              conflitos: [{ dia: 4, inicio: '08:00', fim: '10:00', turmaIds: [a.id, c.id], turmas: [] }],
             })
           : undefined,
     ]);
     await userEvent.click(await screen.findByRole('button', { name: /AAA/ }));
     await userEvent.click(screen.getByRole('button', { name: /CCC/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Salvar plano' }));
-    expect(await screen.findByText('Plano recusado pelo servidor.')).toBeInTheDocument();
-    expect(screen.getByText('Quarta 17:00: AAA × BBB')).toBeInTheDocument();
+    const modal = await screen.findByRole('alertdialog');
+    expect(modal).toHaveTextContent('Não foi possível salvar o plano porque existem choques de horário');
+    expect(within(modal).getByText('Quinta-feira · 08:00–10:00')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Salvar plano' })).toBeEnabled();
+    expect(screen.getByText(/Salve um plano para ver a semana organizada/)).toBeInTheDocument();
+  });
+
+  it('erro de servidor avisa o usuário e mantém o plano salvo', async () => {
+    montar([
+      (u, i) =>
+        u === PLANO && i?.method === 'PUT' ? json(500, { codigo: 'erro_interno', detail: 'Falhou.' }) : undefined,
+    ]);
+    await userEvent.click(await screen.findByRole('button', { name: /AAA/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar plano' }));
+    expect(await screen.findByText('Falhou.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Salvar plano' })).toBeEnabled();
+  });
+
+  it('não renderiza para professor', async () => {
+    const f = montar([], 'PROFESSOR');
+    await waitFor(() => expect(f.mock.calls.some((x) => x[0] === '/api/v1/auth/eu')).toBe(true));
+    expect(screen.queryByText('Meu plano de aulas')).toBeNull();
+    expect(f.mock.calls.some((x) => x[0] === PLANO)).toBe(false);
   });
 });

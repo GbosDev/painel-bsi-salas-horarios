@@ -172,4 +172,14 @@ export interface CorpoDeErro {
   instance?: string;
   codigo?: string;
   detalhes?: string[];
+  /** Só no 409 `plano_com_conflito`: um item por choque de horário. */
+  conflitos?: ConflitoDaApi[];
+}
+
+export interface ConflitoDaApi {
+  dia: number;
+  inicio: string; // "HH:mm"
+  fim: string; // "HH:mm"
+  turmaIds: number[];
+  turmas: string[];
 }

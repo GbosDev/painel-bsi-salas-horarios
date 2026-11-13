@@ -39,7 +39,12 @@ public class ManipuladorDeErros {
     @ExceptionHandler(PlanoComConflitoException.class)
     public ResponseEntity<RespostaDeErro> conflitoDePlano(PlanoComConflitoException e, HttpServletRequest req) {
         List<String> detalhes = e.conflitos().stream().map(c -> c.descricao()).toList();
-        return problema(HttpStatus.CONFLICT, "plano_com_conflito", e.getMessage(), detalhes, req);
+        List<RespostaDeErro.Conflito> conflitos = e.conflitos().stream()
+                .map(c -> new RespostaDeErro.Conflito(c.diaSemana(), c.inicio().toString(), c.fim().toString(), c.turmaIds(), c.rotulos()))
+                .toList();
+        return ResponseEntity.status(HttpStatus.CONFLICT).contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(RespostaDeErro.comConflitos(HttpStatus.CONFLICT, "plano_com_conflito", e.getMessage(), detalhes,
+                        req.getRequestURI(), conflitos));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

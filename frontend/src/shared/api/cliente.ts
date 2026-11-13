@@ -1,10 +1,11 @@
-import type { CorpoDeErro } from './tipos';
+import type { ConflitoDaApi, CorpoDeErro } from './tipos';
 
 /** Erro devolvido pela API (Problem Details RFC 9457 + codigo e detalhes). */
 export class ErroDeApi extends Error {
   readonly status: number;
   readonly codigo: string;
   readonly detalhes: string[];
+  readonly conflitos: ConflitoDaApi[];
 
   constructor(status: number, corpo: CorpoDeErro | null, mensagemPadrao: string) {
     super(corpo?.detail ?? mensagemPadrao);
@@ -12,6 +13,7 @@ export class ErroDeApi extends Error {
     this.status = status;
     this.codigo = corpo?.codigo ?? 'erro';
     this.detalhes = corpo?.detalhes ?? [];
+    this.conflitos = corpo?.conflitos ?? [];
   }
 }
 

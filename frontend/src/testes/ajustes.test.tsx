@@ -7,7 +7,6 @@ import { esquemaEdicao, esquemaNovaTurma } from '../features/atualizar-dados/typ
 import { esquemaAlterarSenha } from '../features/autenticacao/types/schemas';
 import { PainelDoCursoProvider, usePainelDoCurso } from '../features/cursos/hooks/PainelDoCurso';
 import { Gaveta } from '../features/turmas/components/Gaveta';
-import { VisaoMeuPlano } from '../features/plano/components/VisaoMeuPlano';
 import type { PainelDoCurso } from '../shared/api/tipos';
 import { AgoraProvider } from '../shared/contexto/Agora';
 import { DicasProvider } from '../shared/contexto/Dicas';
@@ -139,35 +138,6 @@ describe('Gaveta da turma', () => {
     await abrir(turma({ aviso: null, horarios: [] }));
     expect(screen.queryByText(/Aviso sobre esta turma/)).toBeNull();
     expect(screen.getByText(/Sem horário fixo/)).toBeInTheDocument();
-  });
-});
-
-describe('Meu plano — sem a caixa de quantidade de choques', () => {
-  const a = turma({ curr2023: disc('AAA', 'Aula A'), horarios: [hor(3, '16:00', '18:00')] });
-  const b = turma({ curr2023: disc('BBB', 'Aula B'), horarios: [hor(3, '17:00', '18:00')] });
-  const orientacao = turma({ curr2023: disc('ORI', 'Orientação'), horarios: [] });
-
-  it('mantém só o aviso de conflito e lista turmas sem horário fixo como tal', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => json(200, { turmaIds: [], atualizadoEm: null })),
-    );
-    renderizar(
-      <MemoryRouter>
-        <AgoraProvider fixo={new Date(2026, 9, 27, 10, 0)}>
-          <DicasProvider>
-            <PainelDoCursoProvider painel={painelDe([a, b, orientacao])} recarregar={async () => undefined}>
-              <VisaoMeuPlano />
-            </PainelDoCursoProvider>
-          </DicasProvider>
-        </AgoraProvider>
-      </MemoryRouter>,
-    );
-    await userEvent.click(await screen.findByRole('button', { name: /AAA/ }));
-    expect(screen.queryByText(/choque\(s\) de horário/)).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: /BBB/ }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('conflitos de horários');
-    expect(screen.getByRole('button', { name: /ORI/ })).toHaveTextContent('sem horário fixo');
   });
 });
 
