@@ -143,35 +143,42 @@
       </div>
     </section>
 
-    <!-- ================= PAINEL (só professor) ================= -->
+    <!-- ================= PAINEL (só professor) =================
+         Relatório do Google Looker Studio incorporado via <iframe>.
+         O src só é atribuído (em js/app.js → loadLookerReport) quando um
+         professor abre a aba, para não carregar o relatório à toa. -->
     <section class="view" id="view-painel">
-      <div class="kpi-row" id="kpiRow"></div>
-
       <div class="section-head">
         <div>
-          <h2>Panorama da oferta</h2>
-          <div class="desc">Como as aulas do semestre se distribuem entre dias, salas e períodos.</div>
+          <h2>Painel de indicadores</h2>
+          <div class="desc">Relatório interativo do Google Looker Studio. Use os filtros e controles do próprio relatório para explorar os dados.</div>
+        </div>
+        <div class="looker-actions">
+          <button type="button" class="csv-template-btn" id="lookerReloadBtn" title="Recarregar o relatório">Recarregar</button>
+          <button type="button" class="csv-template-btn" id="lookerFullscreenBtn" title="Exibir o relatório em tela cheia">Tela cheia</button>
+          <a class="csv-template-btn" id="lookerOpenLink" href="https://datastudio.google.com/reporting/86378fdb-66d4-4bb2-906d-cfeb157a0752/page/yqQAG" target="_blank" rel="noopener noreferrer" title="Abrir no Looker Studio (nova aba)">Abrir no Looker Studio ↗</a>
         </div>
       </div>
-      <div class="charts-grid">
-        <div class="chart-panel">
-          <h3>Aulas por dia da semana</h3>
-          <div class="chart-sub">Total de sessões semanais alocadas, por dia</div>
-          <div id="chartDias"></div>
-        </div>
-        <div class="chart-panel">
-          <h3>Ocupação por sala</h3>
-          <div class="chart-sub">Sessões semanais por sala física</div>
-          <div id="chartSalas"></div>
-        </div>
-        <div class="chart-panel full">
-          <h3>Disciplinas por período</h3>
-          <div class="chart-sub">Grade 2023 (atual) em teal · Grade 2008 (antiga) em ameixa · períodos O = optativas, A = atividades complementares/extensão</div>
-          <div id="chartPeriodos"></div>
-          <div class="legend-row">
-            <div class="legend-item"><span class="legend-swatch" style="background:var(--teal)"></span>Grade 2023 — atual</div>
-            <div class="legend-item"><span class="legend-swatch" style="background:var(--plum)"></span>Grade 2008 — em extinção</div>
-          </div>
+
+      <!-- A altura do quadro acompanha a largura, na proporção da página do relatório:
+             --report-w × --report-h  = "Tamanho da tela" definido no Looker Studio
+             --report-visible-h       = até onde vai o último gráfico (em px da página do Looker);
+                                        o espaço vazio abaixo disso fica oculto.
+           Se mudar o layout no Looker Studio, ajuste esses valores. -->
+      <div class="looker-frame" id="lookerFrame" data-state="idle" style="--report-w:1200; --report-h:900; --report-visible-h:680;">
+        <iframe
+          id="lookerIframe"
+          title="Painel de indicadores — Google Looker Studio"
+          data-src="https://datastudio.google.com/embed/reporting/86378fdb-66d4-4bb2-906d-cfeb157a0752/page/yqQAG"
+          frameborder="0"
+          allowfullscreen
+          scrolling="no"
+          loading="lazy"
+          referrerpolicy="strict-origin-when-cross-origin"
+          sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
+        <div class="looker-status" id="lookerStatus" aria-live="polite">
+          <div class="looker-spinner" aria-hidden="true"></div>
+          <p>Carregando relatório do Looker Studio…</p>
         </div>
       </div>
     </section>

@@ -344,164 +344,6 @@
     });
   }
   
-  /* ============================================================
-     KPI ROW
-     ============================================================ */
-  var CURSO_KEY = window.__BUSSOLA__.CURSO;
-  function computeKPIs(){
-    var flat = H.flattenSubjects();
-    var disciplinasAtuais = flat.filter(function(x){ return x.grade==='2023'; }).length;
-    var disciplinasAntigas = flat.filter(function(x){ return x.grade==='2008'; }).length;
-    var rooms = {}; RECORDS.forEach(function(r){ if (r.sala) rooms[r.sala]=1; });
-    var profs = {}; RECORDS.forEach(function(r){ if (r.professor && r.professor.indexOf('orientadores')===-1) profs[r.professor]=1; });
-    var totalSessions = 0; RECORDS.forEach(function(r){ totalSessions += r.sessions.length; });
-    // busiest slot
-    var slotCount = {};
-    RECORDS.forEach(function(r){ r.sessions.forEach(function(s){ var k=s.day_num+'-'+s.hour; slotCount[k]=(slotCount[k]||0)+1; }); });
-    var busiest = null, busiestN = 0;
-    for (var k in slotCount){ if (slotCount[k] > busiestN){ busiestN = slotCount[k]; busiest = k; } }
-    var busiestLabel = '—';
-    if (busiest){ var parts = busiest.split('-'); busiestLabel = H.DAY_SHORT[parts[0]] + ' ' + H.fmtHour(parseInt(parts[1],10)); }
-  
-    return [
-      { n: disciplinasAtuais, unit:'', lbl:'Disciplinas na grade 2023', sub: disciplinasAntigas+' ainda ativas na grade 2008' },
-      { n: Object.keys(rooms).length, unit:'salas', lbl:'Espaços físicos em uso', sub: (CURSO_KEY === 'bsi' ? 'distribuídos em 2 prédios' : 'no catálogo de salas do curso') },
-      { n: Object.keys(profs).length, unit:'docentes', lbl:'Professores responsáveis', sub:'no semestre 2026/2' },
-      { n: totalSessions, unit:'aulas/sem.', lbl:'Sessões semanais', sub:'pico: '+busiestLabel }
-    ];
-  }
-  function renderKPIs(){
-    var row = document.getElementById('kpiRow');
-    row.innerHTML = '';
-    computeKPIs().forEach(function(k){
-      row.appendChild(el('div', {class:'kpi'}, [
-        el('div', {class:'n'}, [String(k.n), el('span', {class:'unit'}, [k.unit])]),
-        el('div', {class:'lbl'}, [k.lbl]),
-        el('div', {class:'sub'}, [k.sub])
-      ]));
-    });
-  }
-  
-  /* ============================================================
-     SVG BAR CHART (custom, dependency-free)
-     ============================================================ */
-  function svgEl(tag, attrs){
-    var e = document.createElementNS('http://www.w3.org/2000/svg', tag);
-    for (var k in attrs) e.setAttribute(k, attrs[k]);
-    return e;
-  }
-  function barChart(container, data, opts){
-    // data: [{label, value, color}]
-    opts = opts || {};
-    var w = opts.width || 480, h = opts.height || 220;
-    var padL = 30, padB = opts.rotateLabels ? 54 : 30, padT = 14, padR = 10;
-    var innerW = w - padL - padR, innerH = h - padT - padB;
-    var maxV = Math.max.apply(null, data.map(function(d){ return d.value; })) || 1;
-    var svg = svgEl('svg', {viewBox:'0 0 '+w+' '+h, class:'bar-chart', role:'img', 'aria-label': opts.ariaLabel || 'gráfico de barras'});
-    svg.style.minWidth = Math.max(280, data.length*34) + 'px';
-    // gridlines
-    var steps = 4;
-    for (var i=0;i<=steps;i++){
-      var y = padT + innerH - (innerH*i/steps);
-      svg.appendChild(svgEl('line', {x1:padL, x2:w-padR, y1:y, y2:y, class:'grid-line'}));
-      var lbl = svgEl('text', {x:4, y:y+3, class:'axis-label'}); lbl.textContent = Math.round(maxV*i/steps);
-      svg.appendChild(lbl);
-    }
-    var bw = innerW / data.length;
-    data.forEach(function(d, idx){
-      var bh = maxV ? (d.value/maxV)*innerH : 0;
-      var x = padL + idx*bw + bw*0.18;
-      var barW = bw*0.64;
-      var y = padT + innerH - bh;
-      var rect = svgEl('rect', {x:x, y:y, width:barW, height:bh, rx:3, fill:d.color, class:'bar'});
-      rect.appendChild(svgEl('title', {})).textContent = d.label + ': ' + d.value;
-      svg.appendChild(rect);
-      if (d.value>0){
-        var vlab = svgEl('text', {x:x+barW/2, y:y-6, class:'val-label', 'text-anchor':'middle'});
-        vlab.textContent = d.value;
-        svg.appendChild(vlab);
-      }
-      var xlab;
-      if (opts.rotateLabels){
-        xlab = svgEl('text', {x:x+barW/2, y:h-padB+16, class:'axis-label', 'text-anchor':'end', transform:'rotate(-40 '+(x+barW/2)+' '+(h-padB+16)+')'});
-      } else {
-        xlab = svgEl('text', {x:x+barW/2, y:h-10, class:'axis-label', 'text-anchor':'middle'});
-      }
-      xlab.textContent = d.label;
-      svg.appendChild(xlab);
-    });
-    container.innerHTML = '';
-    container.appendChild(svg);
-  }
-
-  function stackedBarChart(container, groups, seriesKeys, colors, opts){
-    // groups: [{label, values:{key:val}}]
-    opts = opts || {};
-    var w = opts.width || 980, h = opts.height || 190;
-    var padL = 26, padB = 26, padT = 14, padR = 10;
-    var innerW = w - padL - padR, innerH = h - padT - padB;
-    var totals = groups.map(function(g){ return seriesKeys.reduce(function(s,k){ return s + (g.values[k]||0); }, 0); });
-    var maxV = Math.max.apply(null, totals) || 1;
-    var svg = svgEl('svg', {viewBox:'0 0 '+w+' '+h, class:'bar-chart', role:'img', 'aria-label': opts.ariaLabel||'gráfico'});
-    svg.style.minWidth = Math.max(320, groups.length*46) + 'px';
-    var steps = 4;
-    for (var i=0;i<=steps;i++){
-      var y = padT + innerH - (innerH*i/steps);
-      svg.appendChild(svgEl('line', {x1:padL, x2:w-padR, y1:y, y2:y, class:'grid-line'}));
-    }
-    var bw = innerW / groups.length;
-    groups.forEach(function(g, idx){
-      var x = padL + idx*bw + bw*0.16;
-      var barW = bw*0.68;
-      var yCursor = padT + innerH;
-      var total = totals[idx];
-      seriesKeys.forEach(function(k, si){
-        var v = g.values[k] || 0;
-        var bh = maxV ? (v/maxV)*innerH : 0;
-        var y = yCursor - bh;
-        if (v>0){
-          var rect = svgEl('rect', {x:x, y:y, width:barW, height:bh, fill:colors[si]});
-          rect.appendChild(svgEl('title', {})).textContent = g.label+' · '+k+': '+v;
-          svg.appendChild(rect);
-        }
-        yCursor = y;
-      });
-      if (total>0){
-        var vlab = svgEl('text', {x:x+barW/2, y:yCursor-6, class:'val-label', 'text-anchor':'middle'});
-        vlab.textContent = total;
-        svg.appendChild(vlab);
-      }
-      var xlab = svgEl('text', {x:x+barW/2, y:h-8, class:'axis-label', 'text-anchor':'middle'});
-      xlab.textContent = g.label;
-      svg.appendChild(xlab);
-    });
-    container.innerHTML = '';
-    container.appendChild(svg);
-  }
-  
-  function renderCharts(){
-    // aulas por dia
-    var dayCount = {1:0,2:0,3:0,4:0,5:0,6:0};
-    RECORDS.forEach(function(r){ r.sessions.forEach(function(s){ if (dayCount[s.day_num]!==undefined) dayCount[s.day_num]++; }); });
-    barChart(document.getElementById('chartDias'), H.DAY_ORDER.map(function(d){ return {label:H.DAY_SHORT[d], value:dayCount[d], color:'#3D8577'}; }), {width:520, height:210, ariaLabel:'Aulas por dia da semana'});
-  
-    // ocupação por sala
-    var roomCount = {};
-    H.ALL_ROOMS.forEach(function(r){ roomCount[r]=0; });
-    RECORDS.forEach(function(r){ if (r.sala && roomCount[r.sala]!==undefined) roomCount[r.sala]+= r.sessions.length; });
-    var roomData = Object.keys(roomCount).sort(function(a,b){ return roomCount[b]-roomCount[a]; }).map(function(r){ return {label:r.replace('Sala ','S.').replace('Lab. ','L.'), value:roomCount[r], color:'#B97A22'}; });
-    barChart(document.getElementById('chartSalas'), roomData, {width:440, height:230, ariaLabel:'Ocupação por sala', rotateLabels:true});
-  
-    // disciplinas por periodo (stacked 2023 teal / 2008 plum)
-    var periods = ['1','2','3','4','5','6','7','8','9','10','A','O'];
-    var flat = H.flattenSubjects();
-    var groups = periods.map(function(p){
-      var v23 = flat.filter(function(x){ return x.grade==='2023' && x.periodo===p; }).length;
-      var v08 = flat.filter(function(x){ return x.grade==='2008' && x.periodo===p; }).length;
-      return { label:p, values:{ '2023':v23, '2008':v08 } };
-    }).filter(function(g){ return g.values['2023']+g.values['2008'] > 0; });
-    stackedBarChart(document.getElementById('chartPeriodos'), groups, ['2008','2023'], ['#7C5A72','#3D8577'], {width:1020, height:180, ariaLabel:'Disciplinas por período'});
-  }
   
   window.__b_ui = window.__b_ui || {};
   window.__b_ui.siglaChip = siglaChip;
@@ -510,9 +352,6 @@
   window.__b_ui.hideTooltip = hideTooltip;
   window.__b_ui.renderClock = renderClock;
   window.__b_ui.renderNowList = renderNowList;
-  window.__b_ui.renderKPIs = renderKPIs;
-  window.__b_ui.renderCharts = renderCharts;
-  window.__b_ui.barChart = barChart;
   
   })();
   (function(){
@@ -1105,6 +944,50 @@
   }
   
   /* ============================================================
+     PAINEL — relatório do Google Looker Studio (iframe)
+     O src é atribuído só na primeira abertura da aba (e só para
+     professor, já que switchTab bloqueia 'painel' para aluno).
+     ============================================================ */
+  var LOOKER_TIMEOUT_MS = 20000;
+  var lookerTimer = null;
+  function setLookerState(st, msg){
+    var frame = document.getElementById('lookerFrame');
+    var status = document.getElementById('lookerStatus');
+    if (!frame) return;
+    frame.setAttribute('data-state', st);
+    if (status && msg){ var p = status.querySelector('p'); if (p) p.textContent = msg; }
+  }
+  function loadLookerReport(force){
+    var iframe = document.getElementById('lookerIframe');
+    if (!iframe || !IS_PROFESSOR) return;
+    var src = iframe.getAttribute('data-src');
+    if (!src) return;
+    if (iframe.getAttribute('src') && !force) return; // já carregado
+    setLookerState('loading', 'Carregando relatório do Looker Studio…');
+    clearTimeout(lookerTimer);
+    lookerTimer = setTimeout(function(){
+      setLookerState('slow', 'O relatório está demorando para carregar. Verifique sua conexão ou use “Abrir no Looker Studio”.');
+    }, LOOKER_TIMEOUT_MS);
+    iframe.onload = function(){ clearTimeout(lookerTimer); setLookerState('ready'); };
+    // força recarga mesmo quando o src é o mesmo
+    iframe.setAttribute('src', force ? 'about:blank' : src);
+    if (force) setTimeout(function(){ iframe.setAttribute('src', src); }, 50);
+  }
+  (function wireLookerControls(){
+    var reload = document.getElementById('lookerReloadBtn');
+    if (reload) reload.addEventListener('click', function(){ loadLookerReport(true); });
+    var fs = document.getElementById('lookerFullscreenBtn');
+    var frame = document.getElementById('lookerFrame');
+    if (fs && frame){
+      var canFs = frame.requestFullscreen || frame.webkitRequestFullscreen;
+      if (!canFs){ fs.style.display = 'none'; }
+      else fs.addEventListener('click', function(){
+        try{ (frame.requestFullscreen || frame.webkitRequestFullscreen).call(frame); }catch(e){}
+      });
+    }
+  })();
+
+  /* ============================================================
      TAB SWITCHING
      ============================================================ */
   function switchTab(tab){
@@ -1117,6 +1000,7 @@
     document.getElementById('view-'+tab).classList.add('active');
     document.body.setAttribute('data-tab', tab);
     if (tab === 'predio'){ UI.renderRoomsGrid(); }
+    if (tab === 'painel'){ loadLookerReport(); }
     var activeBtn = document.querySelector('.tab-btn[data-tab="'+tab+'"]');
     if (activeBtn && activeBtn.scrollIntoView){ try{ activeBtn.scrollIntoView({inline:'center', block:'nearest'}); }catch(e){} }
   }
@@ -1267,8 +1151,6 @@
     renderCourseIdentity();
     UI.renderClock();
     UI.renderNowList();
-    UI.renderKPIs();
-    UI.renderCharts();
     UI.renderFilterBarPredio();
     UI.renderRoomsGrid();
     renderFilterBarGrade();

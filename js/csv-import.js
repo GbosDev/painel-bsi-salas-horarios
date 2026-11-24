@@ -54,7 +54,9 @@
   /* aceita "14h", "14h00", "14:00" e "14" */
   function parseHour(tok){
     var m = String(tok||'').trim().toLowerCase().match(/^(\d{1,2})\s*h?\s*(?::?(\d{2}))?$/);
-    return m ? parseInt(m[1],10) : null;
+    if (!m) return null;
+    var h = parseInt(m[1],10), min = m[2] ? parseInt(m[2],10) : 0;
+    return (h <= 23 && min <= 59) ? h : null; /* "25h" ou "14:75" viram aviso, não aula fantasma */
   }
   function parseHorarioCell(raw){
     if (!raw || !String(raw).trim()) return { sessions:[], invalid:[] };
@@ -111,6 +113,9 @@
     return { map:map, horarioCols:horarioCols, isDual:isDual };
   }
 
+  /* null = planilha não informou a seção → a turma mantém a que já tem */
+  function parseSecao(raw){ var n = normalize(raw); if (!n) return null; return (n==='pos' || n==='pos-graduacao' || n==='posgraduacao') ? 'pos' : 'regular'; }
+
   function val(cols, map, field){ var idx = map[field]; return idx===undefined ? '' : (cols[idx]||'').trim(); }
 
   function collectSessions(cols, horarioCols){
@@ -142,7 +147,7 @@
         matchSigla: sU||sA, matchGrade: sU ? '2023' : '2008',
         curr2008:curr2008, curr2023:curr2023,
         professor: val(cols,map,'professor'), sala: val(cols,map,'sala')||null, vagas: parseInt(val(cols,map,'vagas'),10)||0,
-        section: normalize(val(cols,map,'secao'))==='pos' ? 'pos' : 'regular',
+        section: parseSecao(val(cols,map,'secao')),
         sessions: h.sessions, id: val(cols,map,'id')||null
       }};
     }
@@ -155,15 +160,34 @@
       matchSigla: sigla, matchGrade: grade,
       curr2008: grade==='2008' ? curr : null, curr2023: grade==='2023' ? curr : null,
       professor: val(cols,map,'professor'), sala: val(cols,map,'sala')||null, vagas: parseInt(val(cols,map,'vagas'),10)||0,
-      section: normalize(val(cols,map,'secao'))==='pos' ? 'pos' : 'regular',
+      section: parseSecao(val(cols,map,'secao')),
       sessions: h.sessions, id: val(cols,map,'id')||null
     }};
   }
 
+  /* Edições ficam em 'bussola_overrides_<curso>' e os IDs se repetem entre cursos
+     (todo curso começa em 1). Por isso a leitura e a gravação usam SEMPRE a chave do
+     curso de destino — nunca a do curso aberto na tela (H.saveOverride). */
+  function overridesKey(cursoKey){ return 'bussola_overrides_' + cursoKey; }
+  function loadOverrides(cursoKey){ try{ return JSON.parse(localStorage.getItem(overridesKey(cursoKey))) || {}; }catch(e){ return {}; } }
+  /* mescla com a edição anterior: um lote que só traz o professor não desfaz a sala de um lote anterior */
+  function saveOverrideFor(cursoKey, recId, patch){
+    var all = loadOverrides(cursoKey);
+    all[recId] = Object.assign({}, all[recId] || {}, patch);
+    return H.safeSet(overridesKey(cursoKey), JSON.stringify(all));
+  }
+  /* estado ATUAL do curso: dados-base + turmas criadas/removidas + edições salvas */
   function currentDataset(cursoKey){
     var dataset = (window.BUSSOLA_DATASETS && window.BUSSOLA_DATASETS[cursoKey]) || [];
     if (window.BussolaStore) dataset = BussolaStore.apply(cursoKey, dataset);
-    return dataset;
+    var ov = loadOverrides(cursoKey);
+    return dataset.map(function(r){
+      var p = ov[r.id]; if (!p) return r;
+      var c = Object.assign({}, r);
+      ['professor','sala','vagas','sessions','curr2008','curr2023'].forEach(function(k){ if (p[k] !== undefined) c[k] = p[k]; });
+      if (p.section) c.section = p.section;
+      return c;
+    });
   }
 
   function findExisting(dataset, record){
@@ -193,20 +217,21 @@
       var antes = { professor:existing.professor||'—', sala:existing.sala||'—', vagas:existing.vagas||0,
         horarios: (existing.sessions||[]).map(function(s){return s.day_short+' '+H.fmtHour(s.hour);}).join(' · ')||'—' };
       /* só sobrescreve o que a planilha realmente trouxe: célula vazia preserva o dado atual */
-      var patch = { section: record.section };
+      var patch = {};
+      if (record.section) patch.section = record.section;
       if (record.professor) patch.professor = record.professor;
       if (record.sala) patch.sala = record.sala;
       if (record.vagas) patch.vagas = record.vagas;
       if (record.sessions.length) patch.sessions = toSessionObjs(record.sessions);
       if (record.curr2008) patch.curr2008 = record.curr2008;
       if (record.curr2023) patch.curr2023 = record.curr2023;
-      H.saveOverride(existing.id, patch);
+      if (!saveOverrideFor(cursoKey, existing.id, patch)) return 'falhou';
       H.logAudit({ curso:cursoKey, cursoNome:cursoNome, tipo:'csv_atualizada', turmaSigla:turmaSigla, turmaNome:turmaNome, motivo:motivo, antes:antes, depois:depois });
       return 'atualizada';
     }
     window.BussolaStore.addRecord(cursoKey, {
       curr2008: record.curr2008, curr2023: record.curr2023,
-      professor: record.professor, sala: record.sala, vagas: record.vagas, section: record.section,
+      professor: record.professor, sala: record.sala, vagas: record.vagas, section: record.section || 'regular',
       sessions: toSessionObjs(record.sessions)
     });
     H.logAudit({ curso:cursoKey, cursoNome:cursoNome, tipo:'csv_criada', turmaSigla:turmaSigla, turmaNome:turmaNome, motivo:motivo, antes:{}, depois:depois });
@@ -406,11 +431,14 @@
       var applyBtn = el('button', {type:'button', class:'csv-apply-btn'}, ['Aplicar '+ok.length+' alteração(ões)']);
       applyBtn.disabled = !ok.length;
       applyBtn.addEventListener('click', function(){
+        if (applyBtn.disabled) return;
+        applyBtn.disabled = true;
         var cursoNome = (window.BUSSOLA_COURSES[targetCurso]&&window.BUSSOLA_COURSES[targetCurso].nome) || targetCurso;
         var motivo = obsInput.value.trim() || 'Importação por planilha CSV';
-        var counts = { criada:0, atualizada:0 };
+        var counts = { criada:0, atualizada:0, falhou:0 };
         ok.forEach(function(r){ counts[applyRow(targetCurso, cursoNome, r.record, motivo)]++; });
         var nota = counts.criada+' criada(s), '+counts.atualizada+' atualizada(s).';
+        if (counts.falhou) nota += ' '+counts.falhou+' não puderam ser salvas.';
         if (targetCurso !== B.CURSO) nota += ' Abra o painel de '+cursoNome+' para ver o resultado.';
         else nota += ' Recarregando…';
         resultsWrap.appendChild(el('div', {class:'edit-saved-note'}, [nota]));
